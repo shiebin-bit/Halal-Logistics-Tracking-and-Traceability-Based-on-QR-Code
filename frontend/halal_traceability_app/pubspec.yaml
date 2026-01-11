@@ -1,0 +1,39 @@
+name: halal_traceability_app
+description: A Halal Logistics Tracking and Traceability application.
+publish_to: 'none' 
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Icons
+  cupertino_icons: ^1.0.8
+
+  # Logic & Features
+  shared_preferences: ^2.2.2  # For Login Session
+  qr_flutter: ^4.1.0          # For Generating QR Codes
+  http: ^1.2.0
+  image_picker: ^1.2.1
+  file_picker: ^8.0.0
+  mobile_scanner: ^5.2.3
+  intl: ^0.19.0
+  url_launcher: ^6.2.4
+  path_provider: ^2.1.2  
+  open_file: ^3.3.2
+  signature: ^5.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  # This section enables your images
+  assets:
+    - assets/images/
