@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:async';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -19,7 +18,7 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    // 1. Setup Animation Controller
+    // Setup animations
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
@@ -35,10 +34,9 @@ class _SplashScreenState extends State<SplashScreen>
       end: 1.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
 
-    // Start Animation
-    _controller.forward();
 
-    // 2. Start Login Check
+
+    _controller.forward();
     _checkLoginStatus();
   }
 
@@ -88,7 +86,7 @@ class _SplashScreenState extends State<SplashScreen>
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
-          // Advanced Feature: Premium Vertical Gradient
+
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -116,19 +114,19 @@ class _SplashScreenState extends State<SplashScreen>
                         child: Container(
                           height: 160,
                           width: 160,
-                          // IMPORTANT: White background needed for contrast
+
                           decoration: BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
+                                color: Colors.black.withValues(alpha: 0.3),
                                 blurRadius: 25,
                                 offset: const Offset(0, 10),
                               ),
                             ],
                           ),
-                          // Padding: 20 gives it space, 'contain' ensures full logo shows
+
                           padding: const EdgeInsets.all(4),
                           child: Image.asset(
                             'assets/images/logo.png',

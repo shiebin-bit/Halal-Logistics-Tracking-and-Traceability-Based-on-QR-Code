@@ -7,20 +7,21 @@ use Illuminate\Http\Request;
 use App\Models\Checkpoint;
 use Illuminate\Support\Facades\Auth;
 
+/**
+ * Handles report generation: audit logs and manifest downloads.
+ */
 class ReportController extends Controller
 {
+    /**
+     * Get the 50 most recent audit log entries with batch info.
+     */
     public function getAuditLogs(Request $request)
     {
-        $user = Auth::user();
-
-        // Get recent 50 logs, latest first
-        // eager load 'batch' so we can show Batch ID string
         $logs = Checkpoint::with('batch')
             ->orderBy('created_at', 'desc')
             ->limit(50)
             ->get();
 
-        // Format for Flutter
         $formattedLogs = $logs->map(function ($log) {
             return [
                 'batch_id' => $log->batch ? $log->batch->batch_id : 'Unknown',
@@ -33,10 +34,11 @@ class ReportController extends Controller
         return response()->json(['data' => $formattedLogs]);
     }
 
+    /**
+     * Download a manifest PDF (placeholder — requires dompdf library for full implementation).
+     */
     public function downloadManifest()
     {
-        // For now, return a dummy success to prevent crash
-        // Real PDF generation requires 'dompdf' library
         return response()->json(['message' => 'PDF Service Placeholder'], 200);
     }
 }

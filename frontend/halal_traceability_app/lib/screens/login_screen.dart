@@ -1,7 +1,9 @@
-import 'dart:convert'; // For decoding JSON
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http; // For API calls
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config.dart';
+import './dashboards/admin_dashboard.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,13 +18,18 @@ class _LoginScreenState extends State<LoginScreen> {
   // Controllers
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
 
   // State
   bool _isPasswordVisible = false;
-  bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
   bool _rememberMe = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -30,32 +37,24 @@ class _LoginScreenState extends State<LoginScreen> {
     _loadSavedEmail();
   }
 
-  // --- LOGIC: Load Saved Email AND Password ---
+  /// Load saved email from SharedPreferences for "Remember Me" feature.
   Future<void> _loadSavedEmail() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _rememberMe = prefs.getBool('remember_me') ?? false;
       if (_rememberMe) {
         _emailController.text = prefs.getString('saved_email') ?? '';
-        // ADDED: Load the password
-        _passwordController.text = prefs.getString('saved_password') ?? '';
       }
     });
   }
 
-  // --- LOGIC: Handle Login ---
+  /// Authenticate user via API and navigate to role-specific dashboard.
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
-      // Validate Confirm Password
-      if (_passwordController.text != _confirmPasswordController.text) {
-        _showError("Passwords do not match!");
-        return;
-      }
 
       setState(() => _isLoading = true);
 
-      // NOTE: Use 10.0.2.2 for Android Emulator, or your PC IP for real phone
-      final url = Uri.parse('http://10.0.2.2:8000/api/login');
+      final url = Uri.parse('$apiBaseUrl/login');
 
       try {
         final response = await http.post(
@@ -102,22 +101,12 @@ class _LoginScreenState extends State<LoginScreen> {
           if (_rememberMe) {
             await prefs.setBool('remember_me', true);
             await prefs.setString('saved_email', _emailController.text.trim());
-            await prefs.setString('saved_password', _passwordController.text);
           } else {
             await prefs.remove('remember_me');
             await prefs.remove('saved_email');
-            await prefs.remove('saved_password');
           }
 
           // Route Logic (No changes needed)
-          String route = '/login';
-          if (role == 'processor')
-            route = '/dashboard/processor';
-          else if (role == 'logistics')
-            route = '/dashboard/logistics';
-          else if (role == 'retailer')
-            route = '/dashboard/retailer';
-          else if (role == 'consumer') route = '/dashboard/consumer';
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -126,7 +115,26 @@ class _LoginScreenState extends State<LoginScreen> {
                   backgroundColor: Colors.green),
             );
             await Future.delayed(const Duration(milliseconds: 500));
-            Navigator.pushReplacementNamed(context, route);
+
+            if (role == 'admin') {
+              // Direct navigation to Admin Dashboard
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const AdminDashboard()),
+              );
+            } else {
+              // Existing logic for other roles
+              String route = '/login';
+              if (role == 'processor')
+                route = '/dashboard/processor';
+              else if (role == 'logistics')
+                route = '/dashboard/logistics';
+              else if (role == 'retailer')
+                route = '/dashboard/retailer';
+              else if (role == 'consumer') route = '/dashboard/consumer';
+
+              Navigator.pushReplacementNamed(context, route);
+            }
           }
         } else {
           final errorData = jsonDecode(response.body);
@@ -185,7 +193,7 @@ class _LoginScreenState extends State<LoginScreen> {
               width: 200,
               decoration: BoxDecoration(
                 color:
-                    Colors.white.withOpacity(0.05), // Subtle transparent white
+                    Colors.white.withValues(alpha: 0.05), // Subtle transparent white
                 shape: BoxShape.circle,
               ),
             ),
@@ -198,7 +206,7 @@ class _LoginScreenState extends State<LoginScreen> {
               height: 120,
               width: 120,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 shape: BoxShape.circle,
               ),
             ),
@@ -211,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
               height: 300,
               width: 300,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.03),
+                color: Colors.white.withValues(alpha: 0.03),
                 shape: BoxShape.circle,
               ),
             ),
@@ -234,7 +242,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.2),
                           blurRadius: 15,
                           offset: const Offset(0, 5),
                         ),
@@ -339,35 +347,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               validator: (val) =>
                                   val!.isEmpty ? 'Enter password' : null,
                             ),
-                            const SizedBox(height: 15),
-
-                            // Confirm Password
-                            TextFormField(
-                              controller: _confirmPasswordController,
-                              obscureText: !_isConfirmPasswordVisible,
-                              decoration: _inputDecoration(
-                                "Confirm Password",
-                                Icons.lock_reset,
-                              ).copyWith(
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _isConfirmPasswordVisible
-                                        ? Icons.visibility
-                                        : Icons.visibility_off,
-                                    color: Colors.grey,
-                                  ),
-                                  onPressed: () => setState(
-                                    () => _isConfirmPasswordVisible =
-                                        !_isConfirmPasswordVisible,
-                                  ),
-                                ),
-                              ),
-                              validator: (val) {
-                                if (val!.isEmpty) return 'Confirm password';
-                                return null;
-                              },
-                            ),
-
                             const SizedBox(height: 10),
 
                             // Remember Me & Forgot PW
@@ -490,13 +469,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(color: Colors.white),
                     ),
                     style: TextButton.styleFrom(
-                      backgroundColor: Colors.white.withOpacity(0.15),
+                      backgroundColor: Colors.white.withValues(alpha: 0.15),
                       padding: const EdgeInsets.symmetric(
                           vertical: 12, horizontal: 25),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                         side: BorderSide(
-                            color: Colors.white.withOpacity(0.3), width: 1),
+                            color: Colors.white.withValues(alpha: 0.3), width: 1),
                       ),
                     ),
                   ),

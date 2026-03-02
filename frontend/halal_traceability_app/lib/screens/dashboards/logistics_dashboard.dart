@@ -9,9 +9,7 @@ import 'package:signature/signature.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// API Config
-const String baseUrl = 'http://10.0.2.2:8000/api';
-const String storageUrl = 'http://10.0.2.2:8000/storage/';
+import '../../config.dart';
 
 class LogisticsDashboard extends StatefulWidget {
   const LogisticsDashboard({super.key});
@@ -173,7 +171,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
           "status": "Delivered"
         }),
       );
-
+      if (!mounted) return;
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Delivery Verified & Uploaded!")));
@@ -334,7 +332,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
           "location": "GPS: 3.140853, 101.693207" // Mock for now
         }),
       );
-
+      if (!mounted) return;
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Incident Reported Successfully!")));
@@ -412,7 +410,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
               }),
           const Divider(),
           ListTile(
-              leading: const Icon(Icons.person, color: Colors.blue),
+              leading: const Icon(Icons.person, color: Colors.black),
               title: const Text("Profile Settings"),
               selected: _selectedIndex == 3,
               onTap: () {
@@ -456,7 +454,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
             decoration: BoxDecoration(
               color: Colors.blue[50],
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
             ),
             child: Center(
               child: Column(
@@ -581,7 +579,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.blue.withOpacity(0.3),
+                        color: Colors.blue.withValues(alpha: 0.3),
                         blurRadius: 10,
                         offset: const Offset(0, 5))
                   ],
@@ -745,14 +743,14 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(value,
               style: TextStyle(
                   fontSize: 24, fontWeight: FontWeight.bold, color: color)),
           Text(title,
-              style: TextStyle(color: color.withOpacity(0.8), fontSize: 12)),
+              style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 12)),
         ]),
       ),
     );
@@ -985,7 +983,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
-
+      if (!mounted) return;
       if (response.statusCode == 200) {
         final updatedData = jsonDecode(response.body)['user'];
         setState(() {

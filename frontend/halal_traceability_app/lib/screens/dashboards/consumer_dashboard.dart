@@ -4,8 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 
-// Change this to your actual IP
-const String baseUrl = 'http://10.0.2.2:8000/api';
+import '../../config.dart';
 
 class ConsumerDashboard extends StatefulWidget {
   const ConsumerDashboard({super.key});
@@ -38,6 +37,13 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
         _fetchBatches();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   // --- FETCH DATA ---
@@ -148,7 +154,7 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
                   height: 200,
                   width: 200,
                   decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withValues(alpha: 0.05),
                       shape: BoxShape.circle))),
           Positioned(
               bottom: 100,
@@ -157,7 +163,7 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
                   height: 150,
                   width: 150,
                   decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withValues(alpha: 0.05),
                       shape: BoxShape.circle))),
 
           // 2. MAIN CONTENT
@@ -186,7 +192,7 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
                       borderRadius: BorderRadius.circular(15),
                       boxShadow: [
                         BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
+                            color: Colors.black.withValues(alpha: 0.2),
                             blurRadius: 15,
                             offset: const Offset(0, 5))
                       ],
@@ -289,7 +295,7 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12)),
                 child: Icon(Icons.inventory_2, color: statusColor),
               ),
@@ -309,7 +315,7 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.1),
+                          color: statusColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4)),
                       child: Text((item['status'] ?? '').toUpperCase(),
                           style: TextStyle(
@@ -518,9 +524,7 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
   }
 }
 
-// --- UPDATED QR SCANNER (WITH GALLERY FIX) ---
-// --- PROFESSIONAL QR SCANNER PAGE ---
-// --- PROFESSIONAL QR SCANNER PAGE (FIXED) ---
+/// QR Scanner page with camera scanning and gallery upload support.
 class QRScannerPage extends StatefulWidget {
   const QRScannerPage({super.key});
 
@@ -588,9 +592,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
                 color: Colors.black45, shape: BoxShape.circle),
             child: IconButton(
               icon: ValueListenableBuilder(
-                valueListenable: controller, // <--- CHANGED THIS
+                valueListenable: controller,
                 builder: (context, state, child) {
-                  // Access torchState from the state object
                   return Icon(
                     state.torchState == TorchState.on
                         ? Icons.flash_on
@@ -651,7 +654,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
   }
 }
 
-// --- CUSTOM PAINTER FOR THE OVERLAY FRAME ---
+/// Custom painter for the QR scanner overlay frame with corner brackets.
 class ScannerOverlayPainter extends CustomPainter {
   final Color borderColor;
   final double borderRadius;
@@ -677,7 +680,7 @@ class ScannerOverlayPainter extends CustomPainter {
 
     // 1. Draw Semi-Transparent Background (Darkens everything except the hole)
     final Paint backgroundPaint = Paint()
-      ..color = Colors.black.withOpacity(0.6);
+      ..color = Colors.black.withValues(alpha: 0.6);
     final Path backgroundPath = Path()
       ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
       ..addRect(cutoutRect)

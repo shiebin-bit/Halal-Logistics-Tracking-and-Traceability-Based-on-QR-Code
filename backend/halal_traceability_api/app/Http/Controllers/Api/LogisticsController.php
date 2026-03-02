@@ -6,18 +6,27 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Batch;
 use App\Models\Checkpoint;
+use App\Models\Incident;
 use Illuminate\Support\Facades\Auth;
 
+/**
+ * Handles logistics operations: route tracking, checkpoint submissions, and incident reporting.
+ */
 class LogisticsController extends Controller
 {
-    // GET /api/logistics/routes
+    /**
+     * Get all active (non-delivered) batches assigned to the current driver.
+     * Returns formatted route data with temperature, ETA, and progress.
+     */
     public function getAssignedRoutes(Request $request)
     {
         $user = $request->user();
 
         $batches = Batch::with('checkpoints')
-            ->where('driver_id', $user->id)
-            ->orWhere('current_holder_id', $user->id)
+            ->where(function ($q) use ($user) {
+                $q->where('driver_id', $user->id)
+                  ->orWhere('current_holder_id', $user->id);
+            })
             ->where('status', '!=', 'Delivered')
             ->get();
 
@@ -26,13 +35,11 @@ class LogisticsController extends Controller
             $currentTemp = $latestCheckpoint ? $latestCheckpoint->temperature . "°C" : "N/A";
 
             $progress = 0.1;
-            if ($b->status === 'In Transit')
-                $progress = 0.5;
-            if ($b->status === 'Delivered')
-                $progress = 1.0;
+            if ($b->status === 'In Transit') $progress = 0.5;
+            if ($b->status === 'Delivered') $progress = 1.0;
 
             return [
-                "batch_id_raw" => $b->batch_id, // <--- ADDED THIS for Dropdown
+                "batch_id_raw" => $b->batch_id,
                 "truckId" => $b->truck_plate ?? "Assigning...",
                 "destination" => $b->destination_address ?? "See Manifest",
                 "eta" => $b->estimated_arrival ? date('H:i', strtotime($b->estimated_arrival)) : "TBD",
@@ -45,7 +52,10 @@ class LogisticsController extends Controller
         return response()->json(['data' => $formatted]);
     }
 
-    // POST /api/logistics/incident
+    /**
+     * Report an incident (e.g., spoilage, broken seal, delay).
+     * Saves to both incidents table (for admin) and checkpoints (for audit trail).
+     */
     public function reportIncident(Request $request)
     {
         $request->validate([
@@ -58,26 +68,36 @@ class LogisticsController extends Controller
         $user = Auth::user();
         $batch = Batch::where('batch_id', $request->batch_id)->firstOrFail();
 
-        // We record incidents as a checkpoint with a special tag in the notes
-        // This ensures it shows up in the Audit Log automatically.
+        // Save to incidents table for admin dashboard
+        Incident::create([
+            'batch_id' => $request->batch_id,
+            'user_id' => $user->id,
+            'issue_type' => $request->issue_type,
+            'description' => $request->description,
+            'location' => $request->location,
+            'status' => 'Open',
+        ]);
+
+        // Log to checkpoints for audit trail
         Checkpoint::create([
             'batch_id' => $batch->id,
             'user_id' => $user->id,
             'location_name' => $request->location,
-            'action_type' => 'transit_update', // Keeping enum strict, using notes for detail
+            'action_type' => 'transit_update',
             'temperature' => 0,
             'notes' => "[INCIDENT: " . $request->issue_type . "] " . $request->description,
         ]);
 
-        // Optional: You could update batch status to 'On Hold' if it's severe
-
         return response()->json(['message' => 'Incident reported successfully']);
     }
 
-    // ... (Keep submitCheckpoint as is) ...
+    /**
+     * Submit a checkpoint scan (temperature, location, signature).
+     * Handles custody transfer: if the scanner is not the current holder,
+     * ownership is transferred and status is updated based on the scanner's role.
+     */
     public function submitCheckpoint(Request $request)
     {
-        // ... (Keep Validation) ...
         $request->validate([
             'batch_id' => 'required|exists:batches,batch_id',
             'temperature' => 'required',
@@ -90,13 +110,10 @@ class LogisticsController extends Controller
         $actionType = 'transit_update';
         $notes = $request->notes;
 
-        // --- NEW LOGIC: ROLE BASED ACTIONS ---
+        // If scanner is not the current holder, transfer custody
         if ($batch->current_holder_id != $user->id) {
-
-            // 1. Transfer Ownership
             $batch->current_holder_id = $user->id;
 
-            // 2. Set Status based on Role
             if ($user->role === 'retailer') {
                 $batch->status = 'Delivered';
                 $batch->destination_address = $user->retailerProfile->outlet_address ?? $request->location;
@@ -114,8 +131,8 @@ class LogisticsController extends Controller
 
             $batch->save();
         }
-        // -------------------------------------
 
+        // Record checkpoint in audit trail
         Checkpoint::create([
             'batch_id' => $batch->id,
             'user_id' => $user->id,

@@ -3,7 +3,6 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-// --- 1. Import Controllers ---
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserUpdateController;
@@ -13,42 +12,41 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\AdminController;
 
 
-// --- 2. Public Routes (No Login Required) ---
+// Public Routes (No Authentication Required)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/public/batches', [BatchController::class, 'publicIndex']);
 
 
-// --- 3. Protected Routes (Must have Token) ---
+// Protected Routes (Requires Sanctum Token)
 Route::middleware('auth:sanctum')->group(function () {
 
-    // Auth
+    // Authentication
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    // --- USER PROFILE MANAGEMENT ---
-    // Get Profile (Uses UserController)
+    // User Profile
     Route::get('/user', [UserController::class, 'show']);
-
-    // Update Profile (Uses the new UserUpdateController)
     Route::post('/user/update', [UserUpdateController::class, 'update']);
 
-    // --- BATCH INVENTORY ---
+    // Batch Management
     Route::get('/batches', [BatchController::class, 'index']);
     Route::post('/batches', [BatchController::class, 'store']);
     Route::get('/batches/{id}', [BatchController::class, 'show']);
     Route::post('/batches/update-status', [BatchController::class, 'updateStatus']);
 
-    // --- REPORTS ---
+    // Reports
     Route::get('/reports/manifest', [ReportController::class, 'downloadManifest']);
     Route::get('/reports/audit-logs', [ReportController::class, 'getAuditLogs']);
 
-    // --- LOGISTICS ---
+    // Logistics
     Route::get('/logistics/routes', [LogisticsController::class, 'getAssignedRoutes']);
     Route::post('/logistics/checkpoint', [LogisticsController::class, 'submitCheckpoint']);
     Route::post('/logistics/incident', [LogisticsController::class, 'reportIncident']);
 
-    // Admin Routes
+    // Admin (role-checked in AdminController constructor)
     Route::get('/admin/stats', [AdminController::class, 'getStats']);
     Route::get('/admin/users', [AdminController::class, 'getUsers']);
     Route::post('/admin/approve/{id}', [AdminController::class, 'approveUser']);
+    Route::post('/admin/reject/{id}', [AdminController::class, 'rejectUser']);
+    Route::get('/admin/incidents', [AdminController::class, 'getIncidents']);
 });

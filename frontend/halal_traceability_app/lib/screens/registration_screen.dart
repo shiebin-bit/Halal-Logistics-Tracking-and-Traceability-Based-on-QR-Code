@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
+import '../config.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -53,6 +54,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _businessRegController = TextEditingController(); // SSM
   final _outletAddressController = TextEditingController();
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _phoneController.dispose();
+    _companyRegController.dispose();
+    _halalCertController.dispose();
+    _factoryAddressController.dispose();
+    _halalExpiryController.dispose();
+    _vehiclePlateController.dispose();
+    _driverLicenseController.dispose();
+    _vehicleTypeController.dispose();
+    _storeNameController.dispose();
+    _businessRegController.dispose();
+    _outletAddressController.dispose();
+    super.dispose();
+  }
+
   // --- LOGIC: PICK FILE ---
   Future<void> _pickFile() async {
     try {
@@ -99,7 +119,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         apiRole = 'logistics';
       else if (_selectedType == 'Retailer') apiRole = 'retailer';
 
-      final uri = Uri.parse('http://10.0.2.2:8000/api/register');
+      final uri = Uri.parse('$apiBaseUrl/register');
 
       try {
         var request = http.MultipartRequest('POST', uri);

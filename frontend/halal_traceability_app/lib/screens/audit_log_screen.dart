@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config.dart';
 
 class AuditLogScreen extends StatefulWidget {
   const AuditLogScreen({super.key});
@@ -26,19 +27,18 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
 
-      // NOTE: Use 10.0.2.2 for Android Emulator
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:8000/api/reports/audit-logs'),
+        Uri.parse('$apiBaseUrl/reports/audit-logs'),
         headers: {
           'Authorization': 'Bearer $token',
-          'Accept': 'application/json' // Good practice
+          'Accept': 'application/json'
         },
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          // Handle both { "data": [...] } and direct [...] formats
+          // Handle both { "data": [...] } and direct [...] response formats
           if (data is Map && data.containsKey('data')) {
             _logs = data['data'];
           } else if (data is List) {
@@ -49,7 +49,6 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
           _isLoading = false;
         });
       } else {
-        // Handle Server Error
         setState(() {
           _errorMessage = "Server Error: ${response.statusCode}";
           _isLoading = false;
@@ -57,7 +56,6 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
         });
       }
     } catch (e) {
-      // Handle Connection Error
       setState(() {
         _errorMessage = "Connection Failed";
         _isLoading = false;
@@ -66,7 +64,7 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
     }
   }
 
-  // Fallback Data so you can see the UI working
+  /// Fallback mock data for when the API is unreachable.
   void _useMockData() {
     _logs = [
       {

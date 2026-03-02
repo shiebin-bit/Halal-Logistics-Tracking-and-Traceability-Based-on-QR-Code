@@ -5,14 +5,17 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
+/**
+ * Returns the authenticated user's profile with role-specific data.
+ */
 class UserController extends Controller
 {
-    // GET /api/user
+    /** Get the current user with their role-specific profile loaded. */
     public function show(Request $request)
     {
         $user = $request->user();
 
-        // Dynamically load the profile based on the role
+        // Load the role-specific profile relation
         if ($user->role === 'logistics') {
             $user->load('logisticsProfile');
         } elseif ($user->role === 'processor') {
@@ -21,8 +24,6 @@ class UserController extends Controller
             $user->load('retailerProfile');
         }
 
-        return response()->json([
-            'user' => $user
-        ]);
+        return response()->json(['user' => $user]);
     }
 }

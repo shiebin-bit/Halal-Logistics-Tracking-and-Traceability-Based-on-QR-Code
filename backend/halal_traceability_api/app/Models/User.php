@@ -7,21 +7,30 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
+/**
+ * User model with role-based profile relationships.
+ * Roles: admin, processor, logistics, retailer, consumer.
+ */
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'role',
-        'phone_number',
-        'profile_image',
-        'is_approved'
+        'name', 'email', 'password', 'role',
+        'phone_number', 'profile_image', 'is_approved'
     ];
 
-    // --- Profile Relationships ---
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'is_approved' => 'boolean',
+    ];
+
     public function processorProfile()
     {
         return $this->hasOne(ProcessorProfile::class);
@@ -32,14 +41,12 @@ class User extends Authenticatable
         return $this->hasOne(LogisticsProfile::class);
     }
 
-
     public function retailerProfile()
     {
         return $this->hasOne(RetailerProfile::class);
     }
 
-    // --- Batch Relationships ---
-    // Batches currently held by this user
+    /** Batches currently held by this user. */
     public function batches()
     {
         return $this->hasMany(Batch::class, 'current_holder_id');

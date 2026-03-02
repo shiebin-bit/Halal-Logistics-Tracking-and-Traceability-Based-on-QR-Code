@@ -7,13 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import '../auditLog_screen.dart'; // Make sure this path is correct
+import '../audit_log_screen.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 
-// --- API CONFIGURATION ---
-const String baseUrl = 'http://10.0.2.2:8000/api';
-const String storageUrl = 'http://10.0.2.2:8000/storage/';
+import '../../config.dart';
 
 class ProcessorDashboard extends StatefulWidget {
   const ProcessorDashboard({super.key});
@@ -167,7 +165,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
           "qr_code_hash": _blockchainHash,
         }),
       );
-
+      if (!mounted) return;
       if (response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -352,7 +350,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.person_outline),
+            leading: const Icon(Icons.person, color: Colors.black),
             title: const Text("Profile Settings"),
             onTap: () {
               Navigator.pop(context);
@@ -378,15 +376,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     );
   }
 
-  // ... [Keep _buildInventoryView, _buildCreateBatchView, _buildReportsView exactly as they are] ...
-  // (I am omitting them to save space, but you can copy them from your previous code block
-  //  because they don't depend on the profile structure changes).
-
-  // Re-paste your existing _buildInventoryView here
   Widget _buildInventoryView() {
-    // ... (Use your existing code here)
-    // Just ensure when you create the BatchDetailScreen, you pass the data correctly.
-    // The previous code was fine for this part.
     if (_isLoadingInventory && _apiBatches.isEmpty) {
       return const Center(
           child: CircularProgressIndicator(color: Color(0xFF1B5E20)));
@@ -513,6 +503,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                               builder: (context) =>
                                   BatchDetailScreen(batchData: item)),
                         );
+                        if (!mounted) return;
                         if (result == true) {
                           _fetchInventory();
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -638,7 +629,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     );
   }
 
-  // ... Paste _buildCreateBatchView and _buildReportsView and _buildStatCard here ...
+
   Widget _buildCreateBatchView() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -904,14 +895,14 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(value,
               style: TextStyle(
                   fontSize: 24, fontWeight: FontWeight.bold, color: color)),
           Text(title,
-              style: TextStyle(color: color.withOpacity(0.8), fontSize: 12)),
+              style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 12)),
         ]),
       ),
     );
@@ -979,7 +970,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
           'status': newStatus,
         }),
       );
-
+      if (!mounted) return;
       if (response.statusCode == 200) {
         setState(() => _status = newStatus);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1143,17 +1134,8 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // ... [Keep Profile Screen Logic Exactly as is from your snippet] ...
-  // (The previous ProfileScreen code I gave you was already dynamic enough
-  // to handle this data if passed correctly).
 
-  // Just ensure you add the "Processor Specific Fields" to the form if you want them editable.
-  // Currently, your code only edits Name and Phone.
 
-  // To keep it simple for now, use the code I provided in the previous "Login Fix" response
-  // for the Profile Screen, as it handles the display correctly.
-
-  // (For brevity, I assume you use the ProfileScreen class provided in the PREVIOUS response block)
   late Map<String, dynamic> _userData;
   File? _profileImage;
   bool _isEditing = false;
