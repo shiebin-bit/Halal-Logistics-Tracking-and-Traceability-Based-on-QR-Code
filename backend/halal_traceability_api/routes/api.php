@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\BatchController;
 use App\Http\Controllers\Api\LogisticsController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\RetailerController;
 
 
 // Public Routes (No Authentication Required)
@@ -49,4 +50,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/approve/{id}', [AdminController::class, 'approveUser']);
     Route::post('/admin/reject/{id}', [AdminController::class, 'rejectUser']);
     Route::get('/admin/incidents', [AdminController::class, 'getIncidents']);
+
+    // Retailer
+    Route::get('/retailer/incoming', [RetailerController::class, 'incoming']);
+    Route::get('/retailer/inventory', [RetailerController::class, 'inventory']);
+    Route::post('/retailer/accept', [RetailerController::class, 'accept']);
+    Route::post('/retailer/reject', [RetailerController::class, 'reject']);
 });

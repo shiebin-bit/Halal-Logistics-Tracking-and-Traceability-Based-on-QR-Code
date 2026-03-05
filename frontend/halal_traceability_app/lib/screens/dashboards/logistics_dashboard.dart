@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config.dart';
+import 'widgets/dashboard_widgets.dart';
 
 class LogisticsDashboard extends StatefulWidget {
   const LogisticsDashboard({super.key});
@@ -44,7 +45,6 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
     "email": "...",
     "phone": "...",
     "profile_image": null,
-    // Default nested structure to prevent null errors before load
     "logistics_profile": {
       "vehicle_plate_no": "...",
       "driver_license_no": "...",
@@ -59,7 +59,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
     _fetchAssignedRoutes();
   }
 
-  // --- API: FETCH USER PROFILE ---
+  // --- ALL API CALLS (UNCHANGED) ---
   Future<void> _fetchUserProfile() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -77,7 +77,6 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
         final data = jsonDecode(response.body);
         setState(() {
           _userData = data['user'] ?? {};
-          // Ensure sub-profile exists
           if (_userData['logistics_profile'] == null) {
             _userData['logistics_profile'] = {};
           }
@@ -88,7 +87,6 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
     }
   }
 
-  // --- API: FETCH ROUTES ---
   Future<void> _fetchAssignedRoutes() async {
     setState(() => _isLoadingRoutes = true);
     try {
@@ -110,7 +108,6 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
           _isLoadingRoutes = false;
         });
       } else {
-        // Fallback Mock Data
         setState(() {
           _assignedShipments = [
             {
@@ -138,7 +135,6 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
     }
   }
 
-  // --- API: SUBMIT CHECKPOINT ---
   Future<void> _submitCheckpoint() async {
     if (_tempController.text.isEmpty || _signatureController.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -165,7 +161,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
         body: jsonEncode({
           "batch_id": _scannedBatchId,
           "temperature": _tempController.text,
-          "location": "3.140853, 101.693207", // Mock GPS for now
+          "location": "3.140853, 101.693207",
           "notes": _notesController.text,
           "signature": signatureBase64,
           "status": "Delivered"
@@ -194,7 +190,6 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
     }
   }
 
-  // --- ACTION: SCAN QR ---
   Future<void> _scanQR() async {
     final result = await Navigator.push(
       context,
@@ -205,12 +200,11 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
       setState(() {
         _scannedBatchId = result;
         _locationController.text = "Lat: 3.1408, Long: 101.6932";
-        _selectedIndex = 1; // Auto switch to scanner view
+        _selectedIndex = 1;
       });
     }
   }
 
-  // --- INCIDENT LOGIC ---
   Future<void> _makePhoneCall(String phoneNumber) async {
     final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
     if (await canLaunchUrl(launchUri)) {
@@ -231,6 +225,8 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
       builder: (context) {
         return StatefulBuilder(builder: (context, setState) {
           return AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: const Text("Report Incident",
                 style:
                     TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
@@ -241,15 +237,12 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                   const Text("Please provide details for the operations team.",
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
                   const SizedBox(height: 15),
-
-                  // 1. Select Batch
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(
                         labelText: "Affected Batch",
                         border: OutlineInputBorder()),
                     value: selectedBatchForIncident,
                     items: _assignedShipments.map((batch) {
-                      // We use the raw ID we added to the backend
                       String id = batch['batch_id_raw'] ?? 'Unknown';
                       return DropdownMenuItem(value: id, child: Text(id));
                     }).toList(),
@@ -257,8 +250,6 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                         setState(() => selectedBatchForIncident = val),
                   ),
                   const SizedBox(height: 10),
-
-                  // 2. Select Issue Type
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(
                         labelText: "Issue Type", border: OutlineInputBorder()),
@@ -270,8 +261,6 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                         setState(() => selectedIssueType = val!),
                   ),
                   const SizedBox(height: 10),
-
-                  // 3. Description
                   TextField(
                     controller: descriptionController,
                     maxLines: 3,
@@ -295,9 +284,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                         const SnackBar(content: Text("Please select a batch")));
                     return;
                   }
-
-                  // Call API
-                  Navigator.pop(context); // Close dialog
+                  Navigator.pop(context);
                   await _submitIncidentToApi(selectedBatchForIncident!,
                       selectedIssueType, descriptionController.text);
                 },
@@ -329,7 +316,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
           "batch_id": batchId,
           "issue_type": type,
           "description": desc,
-          "location": "GPS: 3.140853, 101.693207" // Mock for now
+          "location": "GPS: 3.140853, 101.693207"
         }),
       );
       if (!mounted) return;
@@ -355,66 +342,94 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
-  // --- DRAWER (NAVIGATION) ---
+  // --- REDESIGNED DRAWER ---
   Widget _buildDrawer() {
     ImageProvider? drawerImage;
     if (_userData['profile_image'] != null) {
       drawerImage = NetworkImage("$storageUrl${_userData['profile_image']}");
     }
 
-    // Safely get vehicle plate
     String vehiclePlate =
         _userData['logistics_profile']?['vehicle_plate_no'] ?? 'No Vehicle';
 
     return Drawer(
-      child: Column(
-        children: [
-          UserAccountsDrawerHeader(
-            decoration: const BoxDecoration(color: Color(0xFF1565C0)),
-            accountName: Text(_userData['name'] ?? "Driver",
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            accountEmail: Text("Vehicle: $vehiclePlate"),
-            currentAccountPicture: CircleAvatar(
-                backgroundColor: Colors.white,
-                backgroundImage: drawerImage,
-                child: drawerImage == null
-                    ? const Icon(Icons.person,
-                        size: 35, color: Color(0xFF1565C0))
-                    : null),
-          ),
-          ListTile(
-              leading: const Icon(Icons.map, color: Colors.blue),
-              title: const Text("Active Routes & Map"),
-              selected: _selectedIndex == 0,
+      child: Container(
+        color: const Color(0xFFF8F9FA),
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(
+                  top: 60, bottom: 24, left: 24, right: 24),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF0D47A1),
+                    Color(0xFF1565C0),
+                    Color(0xFF1976D2)
+                  ],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 32,
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                    backgroundImage: drawerImage,
+                    child: drawerImage == null
+                        ? const Icon(Icons.person,
+                            size: 32, color: Colors.white)
+                        : null,
+                  ),
+                  const SizedBox(height: 14),
+                  Text(_userData['name'] ?? "Driver",
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text("🚛 $vehiclePlate",
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildDrawerItem(Icons.map_rounded, "Active Routes & Map", 0),
+            _buildDrawerItem(
+                Icons.qr_code_scanner_rounded, "Scan Checkpoint", 1),
+            _buildDrawerItem(Icons.warning_amber_rounded, "Report Incident", 2),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(color: Colors.grey[200]),
+            ),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.person_rounded,
+                    color: Colors.grey[600], size: 22),
+              ),
+              title: Text("Profile Settings",
+                  style: TextStyle(
+                      fontWeight: FontWeight.w500, color: Colors.grey[700])),
               onTap: () {
-                setState(() => _selectedIndex = 0);
-                Navigator.pop(context);
-              }),
-          ListTile(
-              leading: const Icon(Icons.qr_code_scanner, color: Colors.blue),
-              title: const Text("Scan Checkpoint"),
-              selected: _selectedIndex == 1,
-              onTap: () {
-                setState(() => _selectedIndex = 1);
-                Navigator.pop(context);
-              }),
-          ListTile(
-              leading:
-                  const Icon(Icons.warning_amber_rounded, color: Colors.blue),
-              title: const Text("Report Incident"),
-              selected: _selectedIndex == 2,
-              onTap: () {
-                setState(() => _selectedIndex = 2);
-                Navigator.pop(context);
-              }),
-          const Divider(),
-          ListTile(
-              leading: const Icon(Icons.person, color: Colors.black),
-              title: const Text("Profile Settings"),
-              selected: _selectedIndex == 3,
-              onTap: () {
-                // Close drawer and navigate to profile
                 Navigator.pop(context);
                 Navigator.push(
                   context,
@@ -424,133 +439,309 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                         onProfileUpdate: _fetchUserProfile),
                   ),
                 );
-              }),
-          const Spacer(),
-          ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
+              },
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(color: Colors.grey[200]),
+            ),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.logout_rounded,
+                    color: Colors.red, size: 20),
+              ),
               title: const Text("Secure Logout",
-                  style: TextStyle(color: Colors.red)),
-              onTap: _logout),
-          const SizedBox(height: 20),
-        ],
+                  style: TextStyle(
+                      color: Colors.red, fontWeight: FontWeight.w600)),
+              onTap: _logout,
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }
 
-  // --- UI BUILDERS ---
+  Widget _buildDrawerItem(IconData icon, String title, int index) {
+    final isSelected = _selectedIndex == index;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF1565C0).withValues(alpha: 0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon,
+              color: isSelected ? const Color(0xFF1565C0) : Colors.grey[600],
+              size: 22),
+        ),
+        title: Text(title,
+            style: TextStyle(
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color:
+                    isSelected ? const Color(0xFF1565C0) : Colors.grey[700])),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        selected: isSelected,
+        selectedTileColor: const Color(0xFF1565C0).withValues(alpha: 0.04),
+        onTap: () {
+          setState(() => _selectedIndex = index);
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  // --- REDESIGNED UI BUILDERS ---
 
   Widget _buildRoutesView() {
-    if (_isLoadingRoutes)
-      return const Center(child: CircularProgressIndicator());
+    if (_isLoadingRoutes) return const ShimmerLoader(itemCount: 4);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 200,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.blue[50],
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.map, size: 50, color: Colors.blue),
-                  SizedBox(height: 10),
-                  Text("Live GPS Tracking Active",
-                      style: TextStyle(
-                          color: Colors.blue, fontWeight: FontWeight.bold)),
+          // Live tracking banner
+          StaggeredListItem(
+            index: 0,
+            child: Container(
+              height: 180,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF0D47A1),
+                    Color(0xFF1565C0),
+                    Color(0xFF42A5F5)
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF1565C0).withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  // Decorative circles
+                  Positioned(
+                    right: -30,
+                    top: -30,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 30,
+                    bottom: -20,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.05),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          children: [
+                            PulseWidget(
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.gps_fixed_rounded,
+                                    color: Colors.white, size: 24),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("Live GPS Tracking",
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 18)),
+                                Text("Real-time location monitoring",
+                                    style: TextStyle(
+                                        color: Colors.white70, fontSize: 12)),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.greenAccent.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color:
+                                    Colors.greenAccent.withValues(alpha: 0.5)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.circle,
+                                  color: Colors.greenAccent, size: 8),
+                              SizedBox(width: 6),
+                              Text("Signal Active",
+                                  style: TextStyle(
+                                      color: Colors.greenAccent,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              _buildStatCard(
-                  "Deliveries", "${_assignedShipments.length}", Colors.blue),
-              const SizedBox(width: 10),
-              _buildStatCard("Avg Temp", "-18°C", Colors.lightBlue),
-            ],
+
+          // Stats row
+          StaggeredListItem(
+            index: 1,
+            child: Row(
+              children: [
+                AnimatedStatCard(
+                    title: "Deliveries",
+                    value: "${_assignedShipments.length}",
+                    color: const Color(0xFF1565C0),
+                    icon: Icons.local_shipping_rounded),
+                const SizedBox(width: 12),
+                AnimatedStatCard(
+                    title: "Avg Temp",
+                    value: "-18°C",
+                    color: const Color(0xFF00BCD4),
+                    icon: Icons.thermostat_rounded),
+              ],
+            ),
           ),
-          const SizedBox(height: 25),
-          const Text("Assigned Shipments",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 28),
+
+          // Shipments list
+          StaggeredListItem(
+            index: 2,
+            child: const SectionTitle(
+                title: "Assigned Shipments", accentColor: Color(0xFF1565C0)),
+          ),
+          const SizedBox(height: 12),
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: _assignedShipments.length,
             itemBuilder: (context, index) {
               final route = _assignedShipments[index];
-              return Card(
-                elevation: 3,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+              final isOnRoute = route['status'] == "On Route";
+              return StaggeredListItem(
+                index: 3 + index,
+                child: GlassCard(
+                  padding: const EdgeInsets.all(18),
                   child: Column(
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(children: [
-                            const Icon(Icons.local_shipping_outlined,
-                                color: Colors.black87),
-                            const SizedBox(width: 10),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1565C0)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.local_shipping_rounded,
+                                  color: Color(0xFF1565C0), size: 22),
+                            ),
+                            const SizedBox(width: 12),
                             Text(route['truckId'],
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16)),
+                                    fontWeight: FontWeight.w700, fontSize: 16)),
                           ]),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                                horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: route['status'] == "On Route"
-                                  ? Colors.green[100]
-                                  : Colors.orange[100],
-                              borderRadius: BorderRadius.circular(8),
+                              gradient: LinearGradient(
+                                colors: isOnRoute
+                                    ? [
+                                        const Color(0xFF4CAF50),
+                                        const Color(0xFF66BB6A)
+                                      ]
+                                    : [
+                                        const Color(0xFFFF9800),
+                                        const Color(0xFFFFA726)
+                                      ],
+                              ),
+                              borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(route['status'],
-                                style: TextStyle(
-                                    color: route['status'] == "On Route"
-                                        ? Colors.green[800]
-                                        : Colors.orange[800],
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12)),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11)),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       Row(children: [
-                        const Icon(Icons.location_on,
-                            size: 16, color: Colors.grey),
-                        const SizedBox(width: 5),
+                        Icon(Icons.location_on_rounded,
+                            size: 16, color: Colors.grey[400]),
+                        const SizedBox(width: 6),
                         Text("Dest: ${route['destination']}",
-                            style: TextStyle(color: Colors.grey[700]))
+                            style: TextStyle(color: Colors.grey[600]))
                       ]),
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 6),
                       Row(children: [
-                        const Icon(Icons.access_time,
-                            size: 16, color: Colors.grey),
-                        const SizedBox(width: 5),
+                        Icon(Icons.access_time_rounded,
+                            size: 16, color: Colors.grey[400]),
+                        const SizedBox(width: 6),
                         Text("ETA: ${route['eta']} • Temp: ${route['temp']}",
-                            style: TextStyle(color: Colors.grey[700]))
+                            style: TextStyle(color: Colors.grey[600]))
                       ]),
-                      const SizedBox(height: 15),
+                      const SizedBox(height: 16),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(8),
                         child: LinearProgressIndicator(
                             value: (route['progress'] as num).toDouble(),
-                            backgroundColor: Colors.grey[200],
-                            color: Colors.blue,
-                            minHeight: 6),
+                            backgroundColor: Colors.grey[100],
+                            color: const Color(0xFF1565C0),
+                            minHeight: 8),
                       ),
                     ],
                   ),
@@ -570,67 +761,102 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_scannedBatchId == null)
-            InkWell(
-              onTap: _scanQR,
-              child: Container(
-                height: 150,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.blue.withValues(alpha: 0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5))
-                  ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.qr_code_scanner, size: 60, color: Colors.white),
-                    SizedBox(height: 10),
-                    Text("TAP TO SCAN BATCH",
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16)),
-                  ],
+            PulseWidget(
+              child: InkWell(
+                onTap: _scanQR,
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  height: 160,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF0D47A1),
+                        Color(0xFF1565C0),
+                        Color(0xFF42A5F5)
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                          color: const Color(0xFF1565C0).withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8))
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(Icons.qr_code_scanner_rounded,
+                            size: 44, color: Colors.white),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text("TAP TO SCAN BATCH",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              letterSpacing: 1)),
+                    ],
+                  ),
                 ),
               ),
             )
           else
-            Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.green)),
+            GlassCard(
+              borderColor: Colors.green.withValues(alpha: 0.3),
+              padding: const EdgeInsets.all(18),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.green, size: 30),
-                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.check_circle_rounded,
+                        color: Colors.green, size: 28),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
-                      child: Text("Batch $_scannedBatchId Locked",
+                      child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("Batch Locked",
+                          style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12)),
+                      Text(_scannedBatchId!,
                           style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16))),
+                              fontWeight: FontWeight.w700, fontSize: 16)),
+                    ],
+                  )),
                   IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: Icon(Icons.close_rounded, color: Colors.grey[400]),
                       onPressed: () => setState(() => _scannedBatchId = null)),
                 ],
               ),
             ),
           const SizedBox(height: 25),
           if (_scannedBatchId != null) ...[
-            const Text("Delivery Conditions",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 15),
+            const SectionTitle(
+                title: "Delivery Conditions", accentColor: Color(0xFF1565C0)),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _tempController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                   labelText: "Temperature (°C)",
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.thermostat)),
+                  prefixIcon: Icon(Icons.thermostat_rounded)),
             ),
             const SizedBox(height: 15),
             TextFormField(
@@ -639,7 +865,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
               decoration: const InputDecoration(
                   labelText: "GPS Location",
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.my_location),
+                  prefixIcon: Icon(Icons.my_location_rounded),
                   filled: true,
                   fillColor: Color(0xFFE3F2FD)),
             ),
@@ -649,35 +875,39 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
               maxLines: 2,
               decoration: const InputDecoration(
                   labelText: "Condition Notes (Optional)",
-                  prefixIcon: Icon(Icons.note),
+                  prefixIcon: Icon(Icons.note_rounded),
                   border: OutlineInputBorder()),
             ),
             const SizedBox(height: 20),
-            const Text("Receiver Signature",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 5),
+            const SectionTitle(
+                title: "Receiver Signature", accentColor: Color(0xFF1565C0)),
+            const SizedBox(height: 8),
             Container(
               decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(10)),
-              child: Signature(
-                controller: _signatureController,
-                height: 150,
-                backgroundColor: Colors.grey[100]!,
+                  border: Border.all(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(16)),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Signature(
+                  controller: _signatureController,
+                  height: 150,
+                  backgroundColor: Colors.grey[50]!,
+                ),
               ),
             ),
             Align(
               alignment: Alignment.centerRight,
-              child: TextButton(
+              child: TextButton.icon(
                   onPressed: () => _signatureController.clear(),
-                  child: const Text("Clear Signature")),
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: const Text("Clear Signature")),
             ),
             const SizedBox(height: 20),
             SizedBox(
-              height: 50,
+              height: 54,
               child: ElevatedButton.icon(
                 onPressed: _isSubmitting ? null : _submitCheckpoint,
-                icon: const Icon(Icons.cloud_upload),
+                icon: const Icon(Icons.cloud_upload_rounded),
                 label: _isSubmitting
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text("CONFIRM DELIVERY"),
@@ -694,90 +924,85 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
 
   Widget _buildIncidentsView() {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.warning_amber_rounded,
-              size: 80, color: Colors.orange[700]),
-          const SizedBox(height: 20),
-          const Text("Report Critical Issue",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const Text("Notify admins immediately about delays or spoilage.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 30),
-
-          // --- CALL BUTTON ---
-          ElevatedButton.icon(
-            onPressed: () => _makePhoneCall('999'), // Or your HQ Number
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 30, vertical: 15)),
-            icon: const Icon(Icons.call),
-            label: const Text("Emergency Call Center"),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: Icon(Icons.warning_amber_rounded,
+                size: 64, color: Colors.orange[700]),
           ),
-
-          const SizedBox(height: 15),
-
-          // --- FORM BUTTON ---
-          OutlinedButton.icon(
-            onPressed: _showIncidentForm, // Opens the dialog
-            style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: const BorderSide(color: Colors.red),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 30, vertical: 15)),
-            icon: const Icon(Icons.edit_document),
-            label: const Text("Fill Incident Form"),
+          const SizedBox(height: 24),
+          const Text("Report Critical Issue",
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text("Notify admins immediately about delays or spoilage.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+          const SizedBox(height: 36),
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: ElevatedButton.icon(
+              onPressed: () => _makePhoneCall('999'),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEF5350),
+                  foregroundColor: Colors.white),
+              icon: const Icon(Icons.call_rounded),
+              label: const Text("Emergency Call Center"),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: OutlinedButton.icon(
+              onPressed: _showIncidentForm,
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFEF5350),
+                  side: const BorderSide(color: Color(0xFFEF5350))),
+              icon: const Icon(Icons.edit_document),
+              label: const Text("Fill Incident Form"),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String title, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(value,
-              style: TextStyle(
-                  fontSize: 24, fontWeight: FontWeight.bold, color: color)),
-          Text(title,
-              style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 12)),
-        ]),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final titles = ["Logistics Hub", "Checkpoint Scanner", "Incidents"];
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(_selectedIndex == 0
-            ? "Logistics Hub"
-            : _selectedIndex == 1
-                ? "Checkpoint Scanner"
-                : "Incidents"),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
-        centerTitle: true,
-        // Hide edit button if on profile (it has its own FAB)
-        actions: _selectedIndex == 3 ? [] : null,
+      backgroundColor: Colors.transparent,
+      appBar: GradientAppBar(
+        title: titles[_selectedIndex],
+        gradientColors: const [
+          Color(0xFF0D47A1),
+          Color(0xFF1565C0),
+          Color(0xFF1976D2),
+        ],
       ),
       drawer: _buildDrawer(),
-      body: _selectedIndex == 0
-          ? _buildRoutesView()
-          : _selectedIndex == 1
-              ? _buildScannerView()
-              : _buildIncidentsView(),
+      body: GradientBackground(
+        colors: GradientBackground.logistics,
+        child: AnimatedViewSwitcher(
+          child: KeyedSubtree(
+            key: ValueKey<int>(_selectedIndex),
+            child: _selectedIndex == 0
+                ? _buildRoutesView()
+                : _selectedIndex == 1
+                    ? _buildScannerView()
+                    : _buildIncidentsView(),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -871,31 +1096,25 @@ class ScannerOverlayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Define the paint for the dark background
     final backgroundPaint = Paint()
-      ..color = const Color.fromRGBO(0, 0, 0, 0.5) // Semi-transparent black
+      ..color = const Color.fromRGBO(0, 0, 0, 0.5)
       ..style = PaintingStyle.fill;
 
-    // 2. Define the full screen rectangle
     final backgroundPath = Path()
       ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
 
-    // 3. Define the cutout (scan window)
     final cutoutPath = Path()
       ..addRRect(
           RRect.fromRectAndRadius(scanWindow, Radius.circular(borderRadius)));
 
-    // 4. Subtract the cutout from the background
     final backgroundWithHole = Path.combine(
       PathOperation.difference,
       backgroundPath,
       cutoutPath,
     );
 
-    // 5. Draw the dark background (using the variable we defined!)
     canvas.drawPath(backgroundWithHole, backgroundPaint);
 
-    // 6. Draw the white border
     final borderPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
@@ -930,7 +1149,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
-  late TextEditingController _vehiclePlateController; // NEW
+  late TextEditingController _vehiclePlateController;
 
   @override
   void initState() {
@@ -939,7 +1158,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _nameController = TextEditingController(text: _userData['name']);
     _phoneController = TextEditingController(
         text: _userData['phone_number'] ?? _userData['phone']);
-    // Load logistics specific data
     _vehiclePlateController = TextEditingController(
         text: _userData['logistics_profile']?['vehicle_plate_no'] ?? '');
   }
@@ -973,7 +1191,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       request.fields['name'] = _nameController.text;
       request.fields['phone'] = _phoneController.text;
 
-      // Update specific logistics fields
       request.fields['vehicle_plate_no'] = _vehiclePlateController.text;
 
       if (_profileImage != null) {
@@ -1021,7 +1238,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           NetworkImage("$storageUrl${_userData['profile_image']}");
     }
 
-    // Safely Access Logistics Data
     String vehiclePlate =
         _userData['logistics_profile']?['vehicle_plate_no'] ?? 'N/A';
     String licenseNo =
@@ -1030,12 +1246,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _userData['logistics_profile']?['vehicle_type'] ?? 'N/A';
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text("Driver Profile",
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        backgroundColor: const Color(0xFF1565C0), // Blue for Logistics
-        centerTitle: true,
+      backgroundColor: Colors.transparent,
+      appBar: GradientAppBar(
+        title: "Driver Profile",
+        gradientColors: const [
+          Color(0xFF1565C0),
+          Color(0xFF1976D2),
+          Color(0xFF1E88E5),
+        ],
         actions: [
           IconButton(
             icon: Icon(_isEditing ? Icons.close : Icons.edit,
@@ -1044,7 +1262,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               setState(() {
                 _isEditing = !_isEditing;
                 if (!_isEditing) {
-                  // Reset if cancelled
                   _nameController.text = _userData['name'] ?? "";
                   _vehiclePlateController.text = vehiclePlate;
                   _profileImage = null;
@@ -1055,138 +1272,157 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(width: 10),
         ],
       ),
-      body: Stack(
-        children: [
-          Container(
-            height: 180,
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              color: Color(0xFF1565C0),
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
-              ),
-            ),
-          ),
-          SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              children: [
-                const SizedBox(height: 40),
-                Card(
-                  elevation: 5,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(25.0),
-                    child: Column(
-                      children: [
-                        GestureDetector(
-                          onTap: _pickImage,
-                          child: Stack(
-                            alignment: Alignment.bottomRight,
-                            children: [
-                              CircleAvatar(
+      body: GradientBackground(
+        colors: GradientBackground.logistics,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: [
+              const SizedBox(height: 30),
+              GlassCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(25.0),
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: _pickImage,
+                        child: Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: const Color(0xFF1565C0)
+                                        .withValues(alpha: 0.3),
+                                    width: 3),
+                              ),
+                              child: CircleAvatar(
                                 radius: 50,
-                                backgroundColor: Colors.grey[200],
+                                backgroundColor: const Color(0xFF1565C0)
+                                    .withValues(alpha: 0.1),
                                 backgroundImage: backgroundImage,
                                 child: backgroundImage == null
                                     ? const Icon(Icons.person,
                                         size: 50, color: Color(0xFF1565C0))
                                     : null,
                               ),
-                              if (_isEditing)
-                                const CircleAvatar(
-                                  radius: 15,
-                                  backgroundColor: Colors.orange,
-                                  child: Icon(Icons.camera_alt,
-                                      size: 15, color: Colors.white),
+                            ),
+                            if (_isEditing)
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF1565C0),
+                                  shape: BoxShape.circle,
                                 ),
-                            ],
-                          ),
+                                child: const Icon(Icons.camera_alt,
+                                    size: 16, color: Colors.white),
+                              ),
+                          ],
                         ),
-                        const SizedBox(height: 15),
-                        if (_isEditing)
-                          TextField(
-                            controller: _nameController,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontSize: 22, fontWeight: FontWeight.bold),
-                          )
-                        else
-                          Text(
-                            _userData['name'] ?? "Driver Name",
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontSize: 22, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 15),
+                      if (_isEditing)
+                        TextField(
+                          controller: _nameController,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF37474F)),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: const Color(0xFF1565C0)
+                                        .withValues(alpha: 0.3))),
+                            focusedBorder: const UnderlineInputBorder(
+                                borderSide:
+                                    BorderSide(color: Color(0xFF1565C0))),
                           ),
-                        const SizedBox(height: 5),
-                        Text("Logistics Partner",
-                            style: TextStyle(color: Colors.grey[600])),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _buildSectionLabel("Vehicle Details"),
-                Card(
-                  child: Column(
-                    children: [
-                      _buildInfoTile(
-                          icon: Icons.local_shipping,
-                          label: "Vehicle Plate No",
-                          value: vehiclePlate,
-                          isEditable: _isEditing,
-                          controller: _vehiclePlateController), // Editable
-                      const Divider(height: 1),
-                      _buildInfoTile(
-                          icon: Icons.category,
-                          label: "Vehicle Type",
-                          value: vehicleType),
+                        )
+                      else
+                        Text(
+                          _userData['name'] ?? "Driver Name",
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF37474F)),
+                        ),
+                      const SizedBox(height: 5),
+                      Text("Logistics Partner",
+                          style: TextStyle(color: Colors.grey[600])),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                _buildSectionLabel("Contact & License"),
-                Card(
-                  child: Column(
-                    children: [
-                      _buildInfoTile(
-                          icon: Icons.card_membership,
-                          label: "Driver License",
-                          value: licenseNo),
-                      const Divider(height: 1),
-                      _buildInfoTile(
-                          icon: Icons.phone,
-                          label: "Phone",
-                          value: _userData['phone_number'] ?? "N/A",
-                          isEditable: _isEditing,
-                          controller: _phoneController),
-                      const Divider(height: 1),
-                      _buildInfoTile(
-                          icon: Icons.email,
-                          label: "Email",
-                          value: _userData['email'] ?? "N/A"),
-                    ],
-                  ),
+              ),
+              const SizedBox(height: 25),
+              _buildSectionLabel("Vehicle Details"),
+              GlassCard(
+                child: Column(
+                  children: [
+                    _buildInfoTile(
+                        icon: Icons.local_shipping,
+                        label: "Vehicle Plate No",
+                        value: vehiclePlate,
+                        isEditable: _isEditing,
+                        controller: _vehiclePlateController),
+                    Divider(
+                        height: 1, color: Colors.grey.withValues(alpha: 0.2)),
+                    _buildInfoTile(
+                        icon: Icons.category,
+                        label: "Vehicle Type",
+                        value: vehicleType),
+                  ],
                 ),
-                const SizedBox(height: 100),
-              ],
-            ),
+              ),
+              const SizedBox(height: 25),
+              _buildSectionLabel("Contact & License"),
+              GlassCard(
+                child: Column(
+                  children: [
+                    _buildInfoTile(
+                        icon: Icons.card_membership,
+                        label: "Driver License",
+                        value: licenseNo),
+                    Divider(
+                        height: 1, color: Colors.grey.withValues(alpha: 0.2)),
+                    _buildInfoTile(
+                        icon: Icons.phone,
+                        label: "Phone",
+                        value: _userData['phone_number'] ?? "N/A",
+                        isEditable: _isEditing,
+                        controller: _phoneController),
+                    Divider(
+                        height: 1, color: Colors.grey.withValues(alpha: 0.2)),
+                    _buildInfoTile(
+                        icon: Icons.email,
+                        label: "Email",
+                        value: _userData['email'] ?? "N/A"),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 100),
+            ],
           ),
-        ],
+        ),
       ),
       floatingActionButton: _isEditing
           ? FloatingActionButton.extended(
               onPressed: _isSaving ? null : _updateProfile,
               backgroundColor: const Color(0xFF1565C0),
+              foregroundColor: Colors.white,
+              elevation: 4,
               icon: _isSaving
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(color: Colors.white))
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.save),
-              label: Text(_isSaving ? "Saving..." : "Save Changes"),
+              label: Text(_isSaving ? "Saving..." : "Save Changes",
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
             )
           : null,
     );
@@ -1194,12 +1430,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildSectionLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(left: 10, bottom: 8),
+      padding: const EdgeInsets.only(left: 10, bottom: 10),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(text,
             style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0D47A1),
+                letterSpacing: 0.5)),
       ),
     );
   }
@@ -1211,19 +1450,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
       bool isEditable = false,
       TextEditingController? controller}) {
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       leading: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-            color: Colors.blue[50], borderRadius: BorderRadius.circular(8)),
-        child: Icon(icon, color: const Color(0xFF1565C0)),
+          color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: const Color(0xFF1565C0), size: 22),
       ),
       title:
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       subtitle: isEditable && controller != null
           ? TextField(
               controller: controller,
-              style: const TextStyle(fontWeight: FontWeight.bold))
-          : Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, color: Color(0xFF37474F)),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(
+                        color: const Color(0xFF1565C0).withValues(alpha: 0.3))),
+                focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF1565C0))),
+              ),
+            )
+          : Text(value,
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: Color(0xFF37474F))),
     );
   }
 }

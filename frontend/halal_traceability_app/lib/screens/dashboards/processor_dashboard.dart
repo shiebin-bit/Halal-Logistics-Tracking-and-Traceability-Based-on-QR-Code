@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 
 import '../../config.dart';
+import 'widgets/dashboard_widgets.dart';
 
 class ProcessorDashboard extends StatefulWidget {
   const ProcessorDashboard({super.key});
@@ -30,7 +31,6 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     "email": "...",
     "phone": "...",
     "profile_image": null,
-    // Add nested profile defaults to avoid null errors
     "processor_profile": {
       "company_reg_no": "...",
       "halal_cert_no": "...",
@@ -78,14 +78,13 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     _fetchProfile();
   }
 
-  // --- API ACTIONS ---
+  // --- ALL API ACTIONS (UNCHANGED) ---
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('auth_token');
   }
 
-  // FETCH PROFILE
   Future<void> _fetchProfile() async {
     try {
       final token = await _getToken();
@@ -101,7 +100,6 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
         final data = jsonDecode(response.body);
         setState(() {
           _userData = data['user'];
-          // Ensure profile exists to prevent crashes
           if (_userData['processor_profile'] == null) {
             _userData['processor_profile'] = {};
           }
@@ -112,7 +110,6 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     }
   }
 
-  // 1. FETCH INVENTORY
   Future<void> _fetchInventory() async {
     setState(() => _isLoadingInventory = true);
     try {
@@ -140,7 +137,6 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     }
   }
 
-  // 2. CREATE BATCH
   Future<void> _saveBatchToInventory() async {
     setState(() => _isSavingBatch = true);
 
@@ -208,18 +204,15 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
 
   Future<void> _getCurrentLocation() async {
     setState(() => _isGettingLocation = true);
-    // Simulate GPS fetch
     await Future.delayed(const Duration(seconds: 1));
     setState(() {
       _isGettingLocation = false;
-      // You can replace this with actual Geolocator logic later
       _locationController.text = _userData['processor_profile']
               ['factory_address'] ??
           "Factory Default Location";
     });
   }
 
-  // --- PDF DOWNLOAD FUNCTION ---
   Future<void> _downloadManifest() async {
     setState(() => _isDownloadingPdf = true);
 
@@ -284,7 +277,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     });
   }
 
-  // --- UI BUILDERS ---
+  // --- REDESIGNED UI BUILDERS ---
 
   Widget _buildDrawer() {
     ImageProvider? drawerImage;
@@ -292,94 +285,164 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
       drawerImage = NetworkImage("$storageUrl${_userData['profile_image']}");
     }
 
-    // Access nested profile safely
     String companyReg =
         _userData['processor_profile']?['company_reg_no'] ?? 'Pending';
 
     return Drawer(
-      child: Column(
-        children: [
-          UserAccountsDrawerHeader(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF1B5E20), Color(0xFF43A047)],
+      child: Container(
+        color: const Color(0xFFF8F9FA),
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(
+                  top: 60, bottom: 24, left: 24, right: 24),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF1B5E20),
+                    Color(0xFF2E7D32),
+                    Color(0xFF43A047)
+                  ],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 32,
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                    backgroundImage: drawerImage,
+                    child: drawerImage == null
+                        ? const Text("AP",
+                            style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white))
+                        : null,
+                  ),
+                  const SizedBox(height: 14),
+                  Text(_userData['name'] ?? "Loading...",
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                          color: Colors.white)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text("Reg: $companyReg",
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 12)),
+                  ),
+                ],
               ),
             ),
-            accountName: Text(_userData['name'] ?? "Loading...",
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            accountEmail: Text("Reg No: $companyReg"),
-            currentAccountPicture: CircleAvatar(
-              backgroundColor: Colors.white,
-              backgroundImage: drawerImage,
-              child: drawerImage == null
-                  ? const Text("AP",
-                      style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1B5E20)))
-                  : null,
+            const SizedBox(height: 8),
+            _buildDrawerItem(Icons.list_alt_rounded, "Batch Inventory", 0),
+            _buildDrawerItem(
+                Icons.add_circle_outline_rounded, "Create New Batch", 1),
+            _buildDrawerItem(
+                Icons.analytics_outlined, "Reports & Manifests", 2),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(color: Colors.grey[200]),
             ),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.person_rounded,
+                    color: Colors.grey[600], size: 22),
+              ),
+              title: Text("Profile Settings",
+                  style: TextStyle(
+                      fontWeight: FontWeight.w500, color: Colors.grey[700])),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => ProfileScreen(
+                            userData: _userData,
+                            onProfileUpdate: _fetchProfile)));
+              },
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(color: Colors.grey[200]),
+            ),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.logout_rounded,
+                    color: Colors.red, size: 20),
+              ),
+              title: const Text("Secure Logout",
+                  style: TextStyle(
+                      color: Colors.red, fontWeight: FontWeight.w600)),
+              onTap: _logout,
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem(IconData icon, String title, int index) {
+    final isSelected = _selectedIndex == index;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF1B5E20).withValues(alpha: 0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
           ),
-          ListTile(
-            leading: const Icon(Icons.list_alt, color: Colors.green),
-            title: const Text("Batch Inventory"),
-            selected: _selectedIndex == 0,
-            onTap: () {
-              setState(() => _selectedIndex = 0);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.add_circle_outline, color: Colors.green),
-            title: const Text("Create New Batch"),
-            selected: _selectedIndex == 1,
-            onTap: () {
-              setState(() => _selectedIndex = 1);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.analytics_outlined, color: Colors.green),
-            title: const Text("Reports & Manifests"),
-            selected: _selectedIndex == 2,
-            onTap: () {
-              setState(() => _selectedIndex = 2);
-              Navigator.pop(context);
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.person, color: Colors.black),
-            title: const Text("Profile Settings"),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => ProfileScreen(
-                          userData: _userData,
-                          onProfileUpdate: _fetchProfile)));
-            },
-          ),
-          const Spacer(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text("Secure Logout",
-                style:
-                    TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-            onTap: _logout,
-          ),
-          const SizedBox(height: 20),
-        ],
+          child: Icon(icon,
+              color: isSelected ? const Color(0xFF1B5E20) : Colors.grey[600],
+              size: 22),
+        ),
+        title: Text(title,
+            style: TextStyle(
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color:
+                    isSelected ? const Color(0xFF1B5E20) : Colors.grey[700])),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        selected: isSelected,
+        selectedTileColor: const Color(0xFF1B5E20).withValues(alpha: 0.04),
+        onTap: () {
+          setState(() => _selectedIndex = index);
+          Navigator.pop(context);
+        },
       ),
     );
   }
 
   Widget _buildInventoryView() {
     if (_isLoadingInventory && _apiBatches.isEmpty) {
-      return const Center(
-          child: CircularProgressIndicator(color: Color(0xFF1B5E20)));
+      return const ShimmerLoader(itemCount: 5);
     }
 
     if (_apiBatches.isEmpty) {
@@ -387,13 +450,18 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.inbox, size: 60, color: Colors.grey),
-            const SizedBox(height: 10),
-            const Text("No batches found.",
-                style: TextStyle(color: Colors.grey)),
-            TextButton(
+            Icon(Icons.inbox_rounded, size: 70, color: Colors.grey[300]),
+            const SizedBox(height: 14),
+            Text("No batches found.",
+                style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            TextButton.icon(
               onPressed: _handleRefresh,
-              child: const Text("Refresh"),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text("Refresh"),
             )
           ],
         ),
@@ -428,42 +496,79 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
       onRefresh: _handleRefresh,
       color: const Color(0xFF1B5E20),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                _buildStatCard("Total Batches", "$totalItems", Colors.blue),
-                const SizedBox(width: 10),
-                _buildStatCard("Active", "$totalItems", Colors.orange),
-              ],
+            // Stats row
+            StaggeredListItem(
+              index: 0,
+              child: Row(
+                children: [
+                  AnimatedStatCard(
+                      title: "Total Batches",
+                      value: "$totalItems",
+                      color: const Color(0xFF1B5E20),
+                      icon: Icons.inventory_2_rounded),
+                  const SizedBox(width: 12),
+                  AnimatedStatCard(
+                      title: "Active",
+                      value: "$totalItems",
+                      color: const Color(0xFFFF9800),
+                      icon: Icons.trending_up_rounded),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
+
+            // Search bar
             TextField(
               controller: _searchController,
               onChanged: (val) => setState(() => _currentPage = 1),
               decoration: InputDecoration(
                 hintText: "Search Batch ID...",
-                prefixIcon: const Icon(Icons.search),
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                prefixIcon: Icon(Icons.search_rounded, color: Colors.grey[400]),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide.none),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
+
+            // Filter chips
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: ["All", ..._productTypes].map((filter) {
+                  final isSelected = _filterType == filter;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),
                     child: ChoiceChip(
-                      label: Text(filter),
-                      selected: _filterType == filter,
-                      selectedColor: Colors.green[100],
+                      label: Text(filter,
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? const Color(0xFF1B5E20)
+                                  : Colors.grey[600])),
+                      selected: isSelected,
+                      selectedColor:
+                          const Color(0xFF1B5E20).withValues(alpha: 0.12),
+                      backgroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
+                      side: BorderSide(
+                          color: isSelected
+                              ? const Color(0xFF1B5E20).withValues(alpha: 0.3)
+                              : Colors.grey[200]!),
                       onSelected: (selected) => setState(() {
                         _filterType = filter;
                         _currentPage = 1;
@@ -473,10 +578,13 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                 }).toList(),
               ),
             ),
-            const SizedBox(height: 15),
-            const Text("Active Inventory",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
+            const SizedBox(height: 18),
+
+            const SectionTitle(
+                title: "Active Inventory", accentColor: Color(0xFF1B5E20)),
+            const SizedBox(height: 12),
+
+            // Batch list
             Expanded(
               child: ListView.builder(
                 itemCount: currentDisplayList.length,
@@ -489,105 +597,137 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                   String date = item['slaughter_date'] ?? '';
                   String freshness =
                       item['freshness_score']?.toString() ?? '100';
+                  double freshnessValue =
+                      (double.tryParse(freshness) ?? 100) / 100;
 
-                  return Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) =>
-                                  BatchDetailScreen(batchData: item)),
-                        );
-                        if (!mounted) return;
-                        if (result == true) {
-                          _fetchInventory();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text("Inventory list refreshed")),
+                  return StaggeredListItem(
+                    index: index,
+                    child: GlassCard(
+                      padding: const EdgeInsets.all(16),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    BatchDetailScreen(batchData: item)),
                           );
-                        }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Column(
+                          if (!mounted) return;
+                          if (result == true) {
+                            _fetchInventory();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("Inventory list refreshed")),
+                            );
+                          }
+                        },
+                        child: Row(
                           children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                      color: Colors.green[50],
-                                      borderRadius: BorderRadius.circular(8)),
-                                  child: const Icon(Icons.inventory_2,
-                                      color: Colors.green),
-                                ),
-                                const SizedBox(width: 15),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                  color: const Color(0xFF1B5E20)
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(14)),
+                              child: const Icon(Icons.inventory_2_rounded,
+                                  color: Color(0xFF1B5E20)),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(id,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15)),
+                                  const SizedBox(height: 2),
+                                  Text("$type • $weight",
+                                      style: TextStyle(
+                                          color: Colors.grey[500],
+                                          fontSize: 12)),
+                                  Text("Date: $date",
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey[400])),
+                                  const SizedBox(height: 6),
+                                  // Freshness indicator
+                                  Row(
                                     children: [
-                                      Text(id,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16)),
-                                      Text("$type • $weight",
-                                          style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 12)),
-                                      Text("Date: $date",
+                                      Expanded(
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          child: TweenAnimationBuilder<double>(
+                                            tween: Tween(
+                                                begin: 0, end: freshnessValue),
+                                            duration: const Duration(
+                                                milliseconds: 1200),
+                                            curve: Curves.easeOutCubic,
+                                            builder: (context, value, _) =>
+                                                LinearProgressIndicator(
+                                              value: value,
+                                              backgroundColor: Colors.grey[200],
+                                              color: freshnessValue > 0.7
+                                                  ? const Color(0xFF4CAF50)
+                                                  : freshnessValue > 0.4
+                                                      ? const Color(0xFFFF9800)
+                                                      : const Color(0xFFEF5350),
+                                              minHeight: 5,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text("$freshness%",
                                           style: const TextStyle(
                                               fontSize: 11,
-                                              color: Colors.grey)),
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.health_and_safety,
-                                              size: 12, color: Colors.green),
-                                          const SizedBox(width: 4),
-                                          Text("AI Freshness: $freshness%",
-                                              style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.green,
-                                                  fontWeight: FontWeight.bold)),
-                                        ],
-                                      ),
+                                              color: Color(0xFF4CAF50),
+                                              fontWeight: FontWeight.w700)),
                                     ],
                                   ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: status == "Ready"
+                                          ? [
+                                              const Color(0xFF4CAF50),
+                                              const Color(0xFF66BB6A)
+                                            ]
+                                          : [
+                                              const Color(0xFFFF9800),
+                                              const Color(0xFFFFA726)
+                                            ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(status,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700)),
                                 ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                          color: status == "Ready"
-                                              ? Colors.green
-                                              : Colors.orange,
-                                          borderRadius:
-                                              BorderRadius.circular(12)),
-                                      child: Text(status,
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold)),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    const Row(
-                                      children: [
-                                        Icon(Icons.location_on,
-                                            size: 14, color: Colors.blue),
-                                        Text("Track",
-                                            style: TextStyle(
-                                                color: Colors.blue,
-                                                fontSize: 12)),
-                                      ],
-                                    ),
+                                    Icon(Icons.location_on_rounded,
+                                        size: 14, color: Colors.blue[400]),
+                                    Text("Track",
+                                        style: TextStyle(
+                                            color: Colors.blue[400],
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600)),
                                   ],
                                 ),
                               ],
@@ -600,23 +740,32 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                 },
               ),
             ),
+
+            // Pagination
             Container(
               margin: const EdgeInsets.only(top: 10),
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
               decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(30)),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10)
+                  ]),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                      icon: const Icon(Icons.arrow_back_ios, size: 16),
+                      icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
                       onPressed: _currentPage > 1
                           ? () => setState(() => _currentPage--)
                           : null),
                   Text("Page $_currentPage of $totalPages",
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
                   IconButton(
-                      icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                      icon:
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                       onPressed: _currentPage < totalPages
                           ? () => setState(() => _currentPage++)
                           : null),
@@ -629,7 +778,6 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     );
   }
 
-
   Widget _buildCreateBatchView() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -638,145 +786,189 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("Create Digital Passport",
-                    style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1B5E20))),
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  tooltip: "Clear Form",
-                  onPressed: _resetCreateForm,
-                )
-              ],
-            ),
-            const Text("Register batch on the Halal Blockchain.",
-                style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 20),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
+            StaggeredListItem(
+              index: 0,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF1B5E20),
+                      Color(0xFF2E7D32),
+                      Color(0xFF43A047)
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1B5E20).withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Row(
                   children: [
-                    TextFormField(
-                      controller: _batchIdController,
-                      decoration: const InputDecoration(
-                          labelText: "Batch ID",
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.qr_code)),
-                      validator: (v) => v!.isEmpty ? "Batch ID Required" : null,
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(Icons.fingerprint_rounded,
+                          color: Colors.white, size: 28),
                     ),
-                    const SizedBox(height: 15),
-                    DropdownButtonFormField<String>(
-                      value: _selectedProductType,
-                      decoration: const InputDecoration(
-                          labelText: "Product Type",
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.fastfood)),
-                      items: _productTypes
-                          .map((type) =>
-                              DropdownMenuItem(value: type, child: Text(type)))
-                          .toList(),
-                      onChanged: (val) =>
-                          setState(() => _selectedProductType = val),
-                      validator: (v) =>
-                          v == null ? "Select Product Type" : null,
-                    ),
-                    const SizedBox(height: 15),
-                    TextFormField(
-                      controller: _weightController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                          labelText: "Weight (kg)",
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.scale)),
-                      validator: (v) => v!.isEmpty ? "Required" : null,
-                    ),
-                    const SizedBox(height: 15),
-                    TextFormField(
-                      controller: _originController,
-                      decoration: const InputDecoration(
-                          labelText: "Farm Origin",
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.agriculture)),
-                      validator: (v) => v!.isEmpty ? "Required" : null,
-                    ),
-                    const SizedBox(height: 15),
-                    TextFormField(
-                      controller: _factoryController,
-                      decoration: const InputDecoration(
-                          labelText: "Processing Factory",
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.factory)),
-                      validator: (v) => v!.isEmpty ? "Required" : null,
-                    ),
-                    const SizedBox(height: 15),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _locationController,
-                            readOnly: true,
-                            decoration: const InputDecoration(
-                                labelText: "Current Location",
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.location_on)),
-                            validator: (v) =>
-                                v!.isEmpty ? "Location Required" : null,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        ElevatedButton(
-                          onPressed:
-                              _isGettingLocation ? null : _getCurrentLocation,
-                          style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              backgroundColor: Colors.blue[700],
-                              foregroundColor: Colors.white),
-                          child: _isGettingLocation
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                      color: Colors.white, strokeWidth: 2))
-                              : const Icon(Icons.my_location),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 15),
-                    InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _selectedDate,
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2030));
-                        if (picked != null)
-                          setState(() => _selectedDate = picked);
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                            labelText: "Slaughter Date",
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.calendar_month)),
-                        child: Text(
-                            DateFormat('yyyy-MM-dd').format(_selectedDate)),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("Create Digital Passport",
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 4),
+                          Text("Register batch on the Halal Blockchain",
+                              style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  fontSize: 12)),
+                        ],
                       ),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh_rounded,
+                          color: Colors.white),
+                      tooltip: "Clear Form",
+                      onPressed: _resetCreateForm,
+                    )
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 25),
+            const SizedBox(height: 24),
+
+            // Form card
+            GlassCard(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _batchIdController,
+                    decoration: const InputDecoration(
+                        labelText: "Batch ID",
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.qr_code_rounded)),
+                    validator: (v) => v!.isEmpty ? "Batch ID Required" : null,
+                  ),
+                  const SizedBox(height: 15),
+                  DropdownButtonFormField<String>(
+                    value: _selectedProductType,
+                    decoration: const InputDecoration(
+                        labelText: "Product Type",
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.fastfood_rounded)),
+                    items: _productTypes
+                        .map((type) =>
+                            DropdownMenuItem(value: type, child: Text(type)))
+                        .toList(),
+                    onChanged: (val) =>
+                        setState(() => _selectedProductType = val),
+                    validator: (v) => v == null ? "Select Product Type" : null,
+                  ),
+                  const SizedBox(height: 15),
+                  TextFormField(
+                    controller: _weightController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                        labelText: "Weight (kg)",
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.scale_rounded)),
+                    validator: (v) => v!.isEmpty ? "Required" : null,
+                  ),
+                  const SizedBox(height: 15),
+                  TextFormField(
+                    controller: _originController,
+                    decoration: const InputDecoration(
+                        labelText: "Farm Origin",
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.agriculture_rounded)),
+                    validator: (v) => v!.isEmpty ? "Required" : null,
+                  ),
+                  const SizedBox(height: 15),
+                  TextFormField(
+                    controller: _factoryController,
+                    decoration: const InputDecoration(
+                        labelText: "Processing Factory",
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.factory_rounded)),
+                    validator: (v) => v!.isEmpty ? "Required" : null,
+                  ),
+                  const SizedBox(height: 15),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _locationController,
+                          readOnly: true,
+                          decoration: const InputDecoration(
+                              labelText: "Current Location",
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.location_on_rounded)),
+                          validator: (v) =>
+                              v!.isEmpty ? "Location Required" : null,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton(
+                        onPressed:
+                            _isGettingLocation ? null : _getCurrentLocation,
+                        style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: const Color(0xFF1565C0),
+                            foregroundColor: Colors.white),
+                        child: _isGettingLocation
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2))
+                            : const Icon(Icons.my_location_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030));
+                      if (picked != null) {
+                        setState(() => _selectedDate = picked);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                          labelText: "Slaughter Date",
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.calendar_month_rounded)),
+                      child:
+                          Text(DateFormat('yyyy-MM-dd').format(_selectedDate)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Generate button
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 54,
               child: ElevatedButton.icon(
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
@@ -790,47 +982,71 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                         content: Text("Batch Generated! Ready to Save.")));
                   }
                 },
-                icon: const Icon(Icons.fingerprint),
+                icon: const Icon(Icons.fingerprint_rounded),
                 label: const Text("GENERATE SECURE BATCH"),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1B5E20),
                     foregroundColor: Colors.white),
               ),
             ),
+
+            // QR Code result (with scale animation)
             if (_generatedQRData != null) ...[
               const SizedBox(height: 30),
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeOutBack,
+                builder: (context, value, child) {
+                  return Transform.scale(
+                    scale: value,
+                    child: Opacity(opacity: value, child: child),
+                  );
+                },
+                child: Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
                           color: Colors.white,
-                          border: Border.all(color: Colors.green),
-                          borderRadius: BorderRadius.circular(12)),
-                      child: QrImageView(
-                          data: _generatedQRData!,
-                          version: QrVersions.auto,
-                          size: 200.0),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton.icon(
-                        onPressed:
-                            _isSavingBatch ? null : _saveBatchToInventory,
-                        icon: const Icon(Icons.save),
-                        label: _isSavingBatch
-                            ? const CircularProgressIndicator(
-                                color: Colors.white)
-                            : const Text("2. SAVE TO INVENTORY"),
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue[800],
-                            foregroundColor: Colors.white),
+                          border: Border.all(
+                              color: const Color(0xFF1B5E20)
+                                  .withValues(alpha: 0.3)),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF1B5E20)
+                                  .withValues(alpha: 0.1),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: QrImageView(
+                            data: _generatedQRData!,
+                            version: QrVersions.auto,
+                            size: 200.0),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: ElevatedButton.icon(
+                          onPressed:
+                              _isSavingBatch ? null : _saveBatchToInventory,
+                          icon: const Icon(Icons.save_rounded),
+                          label: _isSavingBatch
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white)
+                              : const Text("SAVE TO INVENTORY"),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1565C0),
+                              foregroundColor: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -843,96 +1059,108 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
 
   Widget _buildReportsView() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.description, size: 100, color: Colors.green[100]),
-          const SizedBox(height: 20),
-          const Text("Export Manifests",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          ElevatedButton.icon(
-            onPressed: _isDownloadingPdf ? null : _downloadManifest,
-            icon: _isDownloadingPdf
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Icon(Icons.download),
-            label: Text(_isDownloadingPdf
-                ? "Downloading..."
-                : "Download Weekly Report (PDF)"),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1B5E20),
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 30, vertical: 15)),
-          ),
-          const SizedBox(height: 20),
-          TextButton.icon(
-            onPressed: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const AuditLogScreen()));
-            },
-            icon: const Icon(Icons.history),
-            label: const Text("View Audit Logs"),
-            style:
-                TextButton.styleFrom(foregroundColor: const Color(0xFF1B5E20)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String title, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(value,
-              style: TextStyle(
-                  fontSize: 24, fontWeight: FontWeight.bold, color: color)),
-          Text(title,
-              style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 12)),
-        ]),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B5E20).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Icon(Icons.description_rounded,
+                  size: 72,
+                  color: const Color(0xFF1B5E20).withValues(alpha: 0.4)),
+            ),
+            const SizedBox(height: 24),
+            const Text("Export Manifests",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text("Download production reports and audit logs.",
+                style: TextStyle(color: Colors.grey[500])),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton.icon(
+                onPressed: _isDownloadingPdf ? null : _downloadManifest,
+                icon: _isDownloadingPdf
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.download_rounded),
+                label: Text(_isDownloadingPdf
+                    ? "Downloading..."
+                    : "Download Weekly Report (PDF)"),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1B5E20),
+                    foregroundColor: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const AuditLogScreen()));
+                },
+                icon: const Icon(Icons.history_rounded),
+                label: const Text("View Audit Logs"),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1B5E20),
+                    side: const BorderSide(color: Color(0xFF1B5E20))),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final titles = ["Dashboard", "Create Batch", "Reports"];
+
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: Text(_selectedIndex == 0
-            ? "Dashboard"
-            : _selectedIndex == 1
-                ? "Create Batch"
-                : "Reports"),
-        backgroundColor: const Color(0xFF1B5E20),
-        foregroundColor: Colors.white,
-        centerTitle: true,
+      backgroundColor: Colors.transparent,
+      appBar: GradientAppBar(
+        title: titles[_selectedIndex],
+        gradientColors: const [
+          Color(0xFF1B5E20),
+          Color(0xFF2E7D32),
+          Color(0xFF43A047),
+        ],
       ),
       drawer: _buildDrawer(),
-      body: _selectedIndex == 0
-          ? _buildInventoryView()
-          : _selectedIndex == 1
-              ? _buildCreateBatchView()
-              : _buildReportsView(),
+      body: GradientBackground(
+        colors: GradientBackground.processor,
+        child: AnimatedViewSwitcher(
+          child: KeyedSubtree(
+            key: ValueKey<int>(_selectedIndex),
+            child: _selectedIndex == 0
+                ? _buildInventoryView()
+                : _selectedIndex == 1
+                    ? _buildCreateBatchView()
+                    : _buildReportsView(),
+          ),
+        ),
+      ),
     );
   }
 }
 
-// --- UPDATED BATCH DETAIL SCREEN (No Changes needed here) ---
+// --- BATCH DETAIL SCREEN (UNCHANGED) ---
 class BatchDetailScreen extends StatefulWidget {
   final Map<String, dynamic> batchData;
   const BatchDetailScreen({super.key, required this.batchData});
@@ -1008,17 +1236,14 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // QR Code Section
             Center(
               child: QrImageView(
-                data: widget.batchData.toString(), // In real app, use the hash
+                data: widget.batchData.toString(),
                 size: 150,
                 version: QrVersions.auto,
               ),
             ),
             const SizedBox(height: 20),
-
-            // Details Card
             Card(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
@@ -1032,17 +1257,12 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                     const Divider(),
                     _detailRow("Weight", widget.batchData['weight'] ?? 'N/A'),
                     const Divider(),
-
-                    // --- STATUS ROW WITH RESTRICTED LOGIC ---
                     Builder(builder: (context) {
-                      // LOGIC: Processor can ONLY move from 'Processing' -> 'Ready'.
-                      // All other statuses are controlled by scanning (Driver/Retailer).
                       List<String> allowedOptions = [];
 
                       if (_status == 'Processing') {
                         allowedOptions = ['Processing', 'Ready'];
                       } else {
-                        // If Ready, In Transit, or Delivered, Processor cannot manually change it.
                         allowedOptions = [_status];
                       }
 
@@ -1061,7 +1281,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                                   value: _status,
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      // Grey out text if disabled
                                       color: allowedOptions.length > 1
                                           ? Colors.green
                                           : Colors.grey),
@@ -1070,7 +1289,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                                       color: allowedOptions.length > 1
                                           ? Colors.green
                                           : Colors.grey[300]),
-                                  // Disable dropdown if only 1 option exists
                                   onChanged: allowedOptions.length > 1
                                       ? (val) {
                                           if (val != null && val != _status) {
@@ -1088,8 +1306,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                         ],
                       );
                     }),
-                    // ----------------------------------------
-
                     const Divider(),
                     _detailRow(
                         "Freshness",
@@ -1121,7 +1337,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
   }
 }
 
-// --- UPDATED PROFILE SCREEN (Connects to ProcessorProfile) ---
+// --- PROFILE SCREEN (UNCHANGED) ---
 class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
   final VoidCallback onProfileUpdate;
@@ -1134,8 +1350,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-
-
   late Map<String, dynamic> _userData;
   File? _profileImage;
   bool _isEditing = false;
@@ -1230,7 +1444,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           NetworkImage("$storageUrl${_userData['profile_image']}");
     }
 
-    // Safely get Processor details
     String companyReg =
         _userData['processor_profile']?['company_reg_no'] ?? 'N/A';
     String halalCert =
@@ -1239,12 +1452,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _userData['processor_profile']?['factory_address'] ?? 'N/A';
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text("Company Profile",
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        backgroundColor: const Color(0xFF1B5E20),
-        centerTitle: true,
+      backgroundColor: Colors.transparent,
+      appBar: GradientAppBar(
+        title: "Company Profile",
+        gradientColors: const [
+          Color(0xFF2E7D32),
+          Color(0xFF388E3C),
+          Color(0xFF43A047),
+        ],
         actions: [
           IconButton(
             icon: Icon(_isEditing ? Icons.close : Icons.edit,
@@ -1264,146 +1479,168 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(width: 10),
         ],
       ),
-      body: Stack(
-        children: [
-          Container(
-            height: 180,
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              color: Color(0xFF1B5E20),
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
-              ),
-            ),
-          ),
-          SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              children: [
-                const SizedBox(height: 40),
-                Card(
-                  elevation: 5,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(25.0),
-                    child: Column(
-                      children: [
-                        GestureDetector(
-                          onTap: _pickImage,
-                          child: Stack(
-                            alignment: Alignment.bottomRight,
-                            children: [
-                              CircleAvatar(
+      body: GradientBackground(
+        colors: GradientBackground.processor,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: [
+              const SizedBox(height: 30),
+              GlassCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(25.0),
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: _pickImage,
+                        child: Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: const Color(0xFF2E7D32)
+                                        .withValues(alpha: 0.3),
+                                    width: 3),
+                              ),
+                              child: CircleAvatar(
                                 radius: 50,
-                                backgroundColor: Colors.grey[200],
+                                backgroundColor: const Color(0xFF2E7D32)
+                                    .withValues(alpha: 0.1),
                                 backgroundImage: backgroundImage,
                                 child: backgroundImage == null
                                     ? const Text("AP",
                                         style: TextStyle(
                                             fontSize: 30,
                                             fontWeight: FontWeight.bold,
-                                            color: Color(0xFF1B5E20)))
+                                            color: Color(0xFF2E7D32)))
                                     : null,
                               ),
-                              if (_isEditing)
-                                const CircleAvatar(
-                                  radius: 15,
-                                  backgroundColor: Colors.orange,
-                                  child: Icon(Icons.camera_alt,
-                                      size: 15, color: Colors.white),
+                            ),
+                            if (_isEditing)
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF2E7D32),
+                                  shape: BoxShape.circle,
                                 ),
-                            ],
-                          ),
+                                child: const Icon(Icons.camera_alt,
+                                    size: 16, color: Colors.white),
+                              ),
+                          ],
                         ),
-                        const SizedBox(height: 15),
-                        if (_isEditing)
-                          TextField(
-                            controller: _nameController,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontSize: 22, fontWeight: FontWeight.bold),
-                          )
-                        else
-                          Text(
-                            _userData['name'] ?? "Company Name",
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontSize: 22, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 15),
+                      if (_isEditing)
+                        TextField(
+                          controller: _nameController,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF37474F)),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: const Color(0xFF2E7D32)
+                                        .withValues(alpha: 0.3))),
+                            focusedBorder: const UnderlineInputBorder(
+                                borderSide:
+                                    BorderSide(color: Color(0xFF2E7D32))),
                           ),
-                        const SizedBox(height: 5),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.green[50],
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.green.shade200),
-                          ),
-                          child: Text("License: $companyReg",
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.green[800],
-                                  fontWeight: FontWeight.w600)),
+                        )
+                      else
+                        Text(
+                          _userData['name'] ?? "Company Name",
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF37474F)),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _buildSectionLabel("Contact Information"),
-                Card(
-                  child: Column(
-                    children: [
-                      _buildInfoTile(
-                          icon: Icons.email_outlined,
-                          label: "Email",
-                          value: _userData['email'] ?? "N/A"),
-                      const Divider(height: 1),
-                      _buildInfoTile(
-                          icon: Icons.phone_outlined,
-                          label: "Phone",
-                          value: _userData['phone_number'] ?? "N/A",
-                          isEditable: _isEditing,
-                          controller: _phoneController),
+                      const SizedBox(height: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: const Color(0xFF2E7D32)
+                                  .withValues(alpha: 0.4)),
+                        ),
+                        child: Text("License: $companyReg",
+                            style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF2E7D32),
+                                fontWeight: FontWeight.bold)),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                _buildSectionLabel("Factory Details"),
-                Card(
-                  child: Column(
-                    children: [
-                      _buildInfoTile(
-                          icon: Icons.location_on_outlined,
-                          label: "Address",
-                          value: address),
-                      const Divider(height: 1),
-                      _buildInfoTile(
-                          icon: Icons.verified_user_outlined,
-                          label: "Halal Cert No",
-                          value: halalCert),
-                    ],
-                  ),
+              ),
+              const SizedBox(height: 25),
+              _buildSectionLabel("Contact Information"),
+              GlassCard(
+                child: Column(
+                  children: [
+                    _buildInfoTile(
+                        icon: Icons.email_outlined,
+                        label: "Email",
+                        value: _userData['email'] ?? "N/A"),
+                    Divider(
+                        height: 1, color: Colors.grey.withValues(alpha: 0.2)),
+                    _buildInfoTile(
+                        icon: Icons.phone_outlined,
+                        label: "Phone",
+                        value: _userData['phone_number'] ??
+                            _userData['phone'] ??
+                            "N/A",
+                        isEditable: _isEditing,
+                        controller: _phoneController),
+                  ],
                 ),
-                const SizedBox(height: 100),
-              ],
-            ),
+              ),
+              const SizedBox(height: 25),
+              _buildSectionLabel("Factory Details"),
+              GlassCard(
+                child: Column(
+                  children: [
+                    _buildInfoTile(
+                        icon: Icons.location_on_outlined,
+                        label: "Address",
+                        value: address),
+                    Divider(
+                        height: 1, color: Colors.grey.withValues(alpha: 0.2)),
+                    _buildInfoTile(
+                        icon: Icons.verified_user_outlined,
+                        label: "Halal Cert No",
+                        value: halalCert),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 100),
+            ],
           ),
-        ],
+        ),
       ),
       floatingActionButton: _isEditing
           ? FloatingActionButton.extended(
               onPressed: _isSaving ? null : _updateProfile,
-              backgroundColor: const Color(0xFF1B5E20),
+              backgroundColor: const Color(0xFF2E7D32),
+              foregroundColor: Colors.white,
+              elevation: 4,
               icon: _isSaving
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(color: Colors.white))
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.save),
-              label: Text(_isSaving ? "Saving..." : "Save Changes"),
+              label: Text(_isSaving ? "Saving..." : "Save Changes",
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
             )
           : null,
     );
@@ -1411,12 +1648,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildSectionLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(left: 10, bottom: 8),
+      padding: const EdgeInsets.only(left: 10, bottom: 10),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(text,
             style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1B5E20),
+                letterSpacing: 0.5)),
       ),
     );
   }
@@ -1428,19 +1668,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
       bool isEditable = false,
       TextEditingController? controller}) {
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       leading: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-            color: Colors.green[50], borderRadius: BorderRadius.circular(8)),
-        child: Icon(icon, color: const Color(0xFF1B5E20)),
+          color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: const Color(0xFF2E7D32), size: 22),
       ),
       title:
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       subtitle: isEditable && controller != null
           ? TextField(
               controller: controller,
-              style: const TextStyle(fontWeight: FontWeight.bold))
-          : Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, color: Color(0xFF37474F)),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(
+                        color: const Color(0xFF2E7D32).withValues(alpha: 0.3))),
+                focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF2E7D32))),
+              ),
+            )
+          : Text(value,
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: Color(0xFF37474F))),
     );
   }
 }
