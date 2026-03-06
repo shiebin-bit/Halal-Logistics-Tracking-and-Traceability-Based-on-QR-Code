@@ -14,6 +14,10 @@ class RegistrationScreen extends StatefulWidget {
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
+  final RegExp _emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+  final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\s'.-]{1,99}$");
+  final RegExp _idRegex = RegExp(r'^[A-Za-z0-9\-\/\s]{4,30}$');
+  final RegExp _vehiclePlateRegex = RegExp(r'^[A-Za-z0-9\s-]{3,12}$');
 
   // --- STATE VARIABLES ---
   final List<String> _stakeholderTypes = [
@@ -53,6 +57,82 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _storeNameController = TextEditingController();
   final _businessRegController = TextEditingController(); // SSM
   final _outletAddressController = TextEditingController();
+
+  String _normalizePhone(String input) {
+    return input.replaceAll(RegExp(r'[\s-]'), '');
+  }
+
+  String? _requiredValidator(String? value, String fieldLabel) {
+    if (value == null || value.trim().isEmpty) {
+      return '$fieldLabel is required';
+    }
+    return null;
+  }
+
+  String? _nameValidator(String? value) {
+    final requiredError = _requiredValidator(value, 'Full Name');
+    if (requiredError != null) return requiredError;
+    final trimmed = value!.trim();
+    if (trimmed.length < 2) return 'Name is too short';
+    if (!_nameRegex.hasMatch(trimmed)) {
+      return 'Use letters and common punctuation only';
+    }
+    return null;
+  }
+
+  String? _emailValidator(String? value) {
+    final requiredError = _requiredValidator(value, 'Email Address');
+    if (requiredError != null) return requiredError;
+    final trimmed = value!.trim();
+    if (!_emailRegex.hasMatch(trimmed)) return 'Enter a valid email address';
+    return null;
+  }
+
+  String? _phoneValidator(String? value) {
+    final requiredError = _requiredValidator(value, 'Phone Number');
+    if (requiredError != null) return requiredError;
+    final normalized = _normalizePhone(value!.trim());
+    if (!RegExp(r'^\+?[0-9]{9,15}$').hasMatch(normalized)) {
+      return 'Enter a valid phone number';
+    }
+    return null;
+  }
+
+  String? _passwordValidator(String? value) {
+    final requiredError = _requiredValidator(value, 'Password');
+    if (requiredError != null) return requiredError;
+    final password = value!;
+    if (password.length < 8) return 'Must be at least 8 characters';
+    if (!RegExp(r'[A-Z]').hasMatch(password)) return 'Add at least 1 uppercase letter';
+    if (!RegExp(r'[a-z]').hasMatch(password)) return 'Add at least 1 lowercase letter';
+    if (!RegExp(r'[0-9]').hasMatch(password)) return 'Add at least 1 number';
+    return null;
+  }
+
+  String? _idValidator(String? value, String label) {
+    final requiredError = _requiredValidator(value, label);
+    if (requiredError != null) return requiredError;
+    if (!_idRegex.hasMatch(value!.trim())) {
+      return '$label format is invalid';
+    }
+    return null;
+  }
+
+  String? _addressValidator(String? value, String label) {
+    final requiredError = _requiredValidator(value, label);
+    if (requiredError != null) return requiredError;
+    if (value!.trim().length < 8) return '$label looks too short';
+    return null;
+  }
+
+  String? _vehiclePlateValidator(String? value) {
+    final requiredError = _requiredValidator(value, 'Vehicle Plate No');
+    if (requiredError != null) return requiredError;
+    if (!_vehiclePlateRegex.hasMatch(value!.trim())) {
+      return 'Enter a valid vehicle plate';
+    }
+    return null;
+  }
 
   @override
   void dispose() {
@@ -129,7 +209,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         request.fields['email'] = _emailController.text.trim();
         request.fields['password'] = _passwordController.text;
         request.fields['role'] = apiRole;
-        request.fields['phone_number'] = _phoneController.text.trim();
+        request.fields['phone_number'] =
+            _normalizePhone(_phoneController.text.trim());
 
         // --- 2. Role Specific Fields ---
         if (apiRole == 'processor') {
@@ -286,6 +367,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         padding: const EdgeInsets.all(24.0),
                         child: Form(
                           key: _formKey,
+                          autovalidateMode:
+                              AutovalidateMode.onUserInteraction,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -300,8 +383,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                 }).toList(),
                                 onChanged: (val) =>
                                     setState(() => _selectedType = val),
-                                validator: (val) =>
-                                    val == null ? 'Required' : null,
+                                validator: (val) => val == null
+                                    ? 'Please select stakeholder type'
+                                    : null,
                               ),
                               const SizedBox(height: 15),
 
@@ -311,50 +395,67 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                 _buildTextField(
                                     controller: _companyRegController,
                                     label: "Company Reg No (SSM)",
-                                    icon: Icons.badge),
+                                    icon: Icons.badge,
+                                    validator: (val) =>
+                                        _idValidator(val, "Company Reg No")),
                                 const SizedBox(height: 10),
                                 _buildTextField(
                                     controller: _halalCertController,
                                     label: "Halal Cert No",
-                                    icon: Icons.verified),
+                                    icon: Icons.verified,
+                                    validator: (val) =>
+                                        _idValidator(val, "Halal Cert No")),
                                 const SizedBox(height: 10),
                                 _buildTextField(
                                     controller: _factoryAddressController,
                                     label: "Factory Address",
-                                    icon: Icons.location_on),
+                                    icon: Icons.location_on,
+                                    validator: (val) =>
+                                        _addressValidator(val, "Factory Address")),
                               ] else if (_selectedType ==
                                   'Logistics Partner') ...[
                                 _buildHeader("Vehicle & Driver Details"),
                                 _buildTextField(
                                     controller: _vehiclePlateController,
                                     label: "Vehicle Plate No",
-                                    icon: Icons.local_shipping),
+                                    icon: Icons.local_shipping,
+                                    validator: _vehiclePlateValidator),
                                 const SizedBox(height: 10),
                                 _buildTextField(
                                     controller: _driverLicenseController,
                                     label: "Driver License No",
-                                    icon: Icons.card_membership),
+                                    icon: Icons.card_membership,
+                                    validator: (val) =>
+                                        _idValidator(val, "Driver License No")),
                                 const SizedBox(height: 10),
                                 _buildTextField(
                                     controller: _vehicleTypeController,
                                     label: "Vehicle Type",
-                                    icon: Icons.category),
+                                    icon: Icons.category,
+                                    validator: (val) =>
+                                        _requiredValidator(val, "Vehicle Type")),
                               ] else if (_selectedType == 'Retailer') ...[
                                 _buildHeader("Store Details"),
                                 _buildTextField(
                                     controller: _storeNameController,
                                     label: "Store Name",
-                                    icon: Icons.store),
+                                    icon: Icons.store,
+                                    validator: (val) =>
+                                        _requiredValidator(val, "Store Name")),
                                 const SizedBox(height: 10),
                                 _buildTextField(
                                     controller: _businessRegController,
                                     label: "Business Reg No (SSM)",
-                                    icon: Icons.badge),
+                                    icon: Icons.badge,
+                                    validator: (val) =>
+                                        _idValidator(val, "Business Reg No")),
                                 const SizedBox(height: 10),
                                 _buildTextField(
                                     controller: _outletAddressController,
                                     label: "Outlet Address",
-                                    icon: Icons.location_on),
+                                    icon: Icons.location_on,
+                                    validator: (val) =>
+                                        _addressValidator(val, "Outlet Address")),
                               ],
 
                               const SizedBox(height: 15),
@@ -363,19 +464,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               _buildTextField(
                                   controller: _nameController,
                                   label: "Full Name",
-                                  icon: Icons.person),
+                                  icon: Icons.person,
+                                  validator: _nameValidator),
                               const SizedBox(height: 10),
                               _buildTextField(
                                   controller: _phoneController,
                                   label: "Phone Number",
                                   icon: Icons.phone,
-                                  type: TextInputType.phone),
+                                  type: TextInputType.phone,
+                                  validator: _phoneValidator),
                               const SizedBox(height: 10),
                               _buildTextField(
                                   controller: _emailController,
                                   label: "Email Address",
                                   icon: Icons.email_outlined,
-                                  type: TextInputType.emailAddress),
+                                  type: TextInputType.emailAddress,
+                                  validator: _emailValidator),
                               const SizedBox(height: 10),
                               TextFormField(
                                 controller: _passwordController,
@@ -394,8 +498,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                             !_isPasswordVisible),
                                   ),
                                 ),
-                                validator: (val) =>
-                                    val!.length < 6 ? 'Min 6 characters' : null,
+                                validator: _passwordValidator,
                               ),
 
                               const SizedBox(height: 20),
@@ -517,12 +620,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     required String label,
     required IconData icon,
     TextInputType type = TextInputType.text,
+    String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: type,
       decoration: _inputDecoration(label, icon),
-      validator: (val) => val!.isEmpty ? 'Required' : null,
+      validator: validator ?? (val) => _requiredValidator(val, label),
     );
   }
 
