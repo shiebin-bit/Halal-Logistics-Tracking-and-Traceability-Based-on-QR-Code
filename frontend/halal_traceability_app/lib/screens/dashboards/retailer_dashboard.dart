@@ -1021,9 +1021,9 @@ class _RetailerScannerPageState extends State<RetailerScannerPage> {
 
 class _ScannerOverlayPainter extends CustomPainter {
   final Rect scanWindow;
-  final double borderRadius;
+  final double borderRadius = 20.0;
 
-  _ScannerOverlayPainter(this.scanWindow, {this.borderRadius = 20.0});
+  _ScannerOverlayPainter(this.scanWindow);
 
   @override
   void paint(Canvas canvas, Size size) {
