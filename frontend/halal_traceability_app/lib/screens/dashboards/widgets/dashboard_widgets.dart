@@ -430,6 +430,95 @@ class AnimatedViewSwitcher extends StatelessWidget {
   }
 }
 
+/// Shared animated save action used by profile settings screens.
+class AnimatedSaveFab extends StatelessWidget {
+  final bool isVisible;
+  final bool isSaving;
+  final bool hasChanges;
+  final Color color;
+  final String heroTag;
+  final VoidCallback onPressed;
+
+  const AnimatedSaveFab({
+    super.key,
+    required this.isVisible,
+    required this.isSaving,
+    required this.hasChanges,
+    required this.color,
+    required this.heroTag,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isVisible) return const SizedBox.shrink();
+
+    final isEnabled = hasChanges && !isSaving;
+    final button = FloatingActionButton.extended(
+      heroTag: heroTag,
+      onPressed: isEnabled ? onPressed : null,
+      backgroundColor: isEnabled ? color : color.withValues(alpha: 0.45),
+      foregroundColor: Colors.white,
+      elevation: isEnabled ? 6 : 2,
+      icon: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 180),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) => ScaleTransition(
+          scale: animation,
+          child: FadeTransition(opacity: animation, child: child),
+        ),
+        child: isSaving
+            ? const SizedBox(
+                key: ValueKey('saving'),
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Icon(
+                hasChanges ? Icons.save_rounded : Icons.edit_note_rounded,
+                key: ValueKey(hasChanges ? 'ready' : 'idle'),
+              ),
+      ),
+      label: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.1, 0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        ),
+        child: Text(
+          isSaving
+              ? 'Saving...'
+              : hasChanges
+                  ? 'Save Changes'
+                  : 'No Changes',
+          key: ValueKey('$isSaving-$hasChanges'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+
+    if (!isEnabled) return button;
+
+    return PulseWidget(
+      minScale: 0.985,
+      maxScale: 1.015,
+      child: button,
+    );
+  }
+}
+
 /// Section title with accent line
 class SectionTitle extends StatelessWidget {
   final String title;

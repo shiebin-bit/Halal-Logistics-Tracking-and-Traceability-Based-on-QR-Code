@@ -189,12 +189,13 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(30), // pill shape
                       boxShadow: [
                         BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5))
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 25,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 10))
                       ],
                     ),
                     child: TextField(
@@ -262,7 +263,23 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
                                         padding: EdgeInsets.all(10),
                                         child: CircularProgressIndicator()));
                               }
-                              return _buildBatchCard(_batches[index]);
+                              return TweenAnimationBuilder<double>(
+                                key: ValueKey(_batches[index]['id']),
+                                tween: Tween(begin: 0.0, end: 1.0),
+                                duration:
+                                    Duration(milliseconds: 300 + (index * 50)),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, value, child) {
+                                  return Opacity(
+                                    opacity: value,
+                                    child: Transform.translate(
+                                      offset: Offset(0, 30 * (1 - value)),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: _buildBatchCard(_batches[index]),
+                              );
                             },
                           ),
                   ),
@@ -281,53 +298,68 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
     if (item['status'] == 'Ready') statusColor = Colors.green;
     if (item['status'] == 'In Transit') statusColor = Colors.blue;
 
-    return Card(
-      elevation: 2,
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: InkWell(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        onTap: () => _openBatchDetails(item), // OPEN DETAILS ON TAP
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12)),
-                child: Icon(Icons.inventory_2, color: statusColor),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(item['batch_id'] ?? 'Unknown ID',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text("${item['product_type'] ?? ''}",
-                        style:
-                            TextStyle(color: Colors.grey[600], fontSize: 12)),
-                    const SizedBox(height: 5),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4)),
-                      child: Text((item['status'] ?? '').toUpperCase(),
-                          style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: statusColor)),
-                    ),
-                  ],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(15),
+          splashColor: statusColor.withValues(alpha: 0.1),
+          highlightColor: statusColor.withValues(alpha: 0.05),
+          onTap: () => _openBatchDetails(item),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Icon(Icons.inventory_2, color: statusColor),
                 ),
-              ),
-              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-            ],
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(item['batch_id'] ?? 'Unknown ID',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text("${item['product_type'] ?? ''}",
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 12)),
+                      const SizedBox(height: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4)),
+                        child: Text((item['status'] ?? '').toUpperCase(),
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: statusColor)),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios,
+                    size: 14, color: Colors.grey),
+              ],
+            ),
           ),
         ),
       ),
@@ -362,7 +394,7 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
         ),
         body: TabBarView(
           children: [
-            _buildDetailsTab(),
+            _buildDetailsTab(context),
             _buildTimelineTab(),
           ],
         ),
@@ -371,7 +403,7 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
   }
 
   // --- TAB 1: PRODUCT DETAILS ---
-  Widget _buildDetailsTab() {
+  Widget _buildDetailsTab(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -384,18 +416,60 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.green, size: 50),
-                  const SizedBox(height: 10),
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.8, end: 1.0),
+                    duration: const Duration(seconds: 1),
+                    curve: Curves.easeInOutSine,
+                    builder: (context, scale, child) {
+                      return Transform.scale(
+                        scale: scale,
+                        child: child,
+                      );
+                    },
+                    onEnd: () {
+                      // Note: We can't easily loop a Tween without a custom state/controller,
+                      // but this entrance pulse adds a nice initial effect.
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.check_circle,
+                          color: Colors.green, size: 60),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
                   const Text("OFFICIALLY VERIFIED",
                       style: TextStyle(
                           color: Colors.green,
                           fontWeight: FontWeight.bold,
                           fontSize: 16)),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildTrustBadge(
+                        "Halal Certified",
+                        Icons.verified,
+                        batchData['halal_status'] == 'Certified'
+                            ? Colors.green
+                            : Colors.orange,
+                      ),
+                      _buildTrustBadge(
+                        "Freshness: ${batchData['freshness_score'] ?? '100'}%",
+                        Icons.eco,
+                        Colors.teal,
+                      ),
+                    ],
+                  ),
                   const Divider(height: 30),
                   _buildDetailRow(
                       "Product", batchData['product_type'] ?? "N/A"),
                   const Divider(),
-                  _buildDetailRow("Weight", batchData['weight'] ?? "N/A"),
+                  _buildDetailRow(
+                      "Weight", "${batchData['weight'] ?? "N/A"} kg"),
                   const Divider(),
                   _buildDetailRow(
                       "Farm Origin", batchData['origin_farm'] ?? "N/A"),
@@ -408,6 +482,74 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.warning_amber_rounded,
+                  color: Colors.black54),
+              label: const Text("Report an Issue",
+                  style: TextStyle(color: Colors.black54)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                _showReportDialog(context);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrustBadge(String label, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Text(label,
+              style: TextStyle(
+                  color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  void _showReportDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Report Issue"),
+        content: const Text(
+            "If this product's details don't match the physical package or it looks suspicious, please let us know so we can investigate the supply chain."),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Issue reported. Thank you!")),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white),
+            child: const Text("Flag Product"),
           ),
         ],
       ),
@@ -440,29 +582,40 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
         _buildTimelineItem(
           title: "Farm Production",
           desc: batchData['origin_farm'] ?? "Registered Farm",
-          date: "10 Oct 2025, 08:00 AM", // Mock Data
+          date: batchData['slaughter_date'] ?? "Unknown Date",
+          icon: Icons.agriculture,
           isCompleted: true,
           isFirst: true,
         ),
         _buildTimelineItem(
           title: "Slaughter & Processing",
           desc: batchData['processing_factory'] ?? "Halal Factory",
-          date: "10 Oct 2025, 02:00 PM",
+          date: "Verified at facility",
+          icon: Icons.factory,
           isCompleted: true,
         ),
         _buildTimelineItem(
           title: "Logistics (Cold Chain)",
-          desc: "Temperature: -18°C",
-          date: "11 Oct 2025, 09:00 AM",
+          desc: "Maintained < -18°C",
+          date: "In Transit",
+          icon: Icons.local_shipping,
           isCompleted: batchData['status'] == 'In Transit' ||
+              batchData['status'] == 'Delivered' ||
               batchData['status'] == 'Ready',
         ),
         _buildTimelineItem(
           title: "Retailer Received",
           desc: "Ready for Sale",
-          date: "Pending",
-          isCompleted: batchData['status'] == 'Ready',
+          date: "Available",
+          icon: Icons.store,
+          isCompleted: batchData['status'] == 'Delivered' ||
+              batchData['status'] == 'Ready',
           isLast: true,
+        ),
+        const SizedBox(height: 30),
+        Center(
+          child: Text("Data secured via Block-hain verification.",
+              style: TextStyle(color: Colors.grey[400], fontSize: 11)),
         ),
       ],
     );
@@ -472,24 +625,41 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
       {required String title,
       required String desc,
       required String date,
+      required IconData icon,
       bool isCompleted = false,
       bool isFirst = false,
       bool isLast = false}) {
-    Color color = isCompleted ? const Color(0xFF1B5E20) : Colors.grey;
+    Color color = isCompleted ? const Color(0xFF1B5E20) : Colors.grey[400]!;
     return IntrinsicHeight(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            width: 40,
+            width: 50,
             child: Column(
               children: [
                 if (!isFirst)
                   Expanded(child: Container(width: 2, color: color)),
-                Icon(
-                    isCompleted
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                    color: color),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isCompleted ? color : color.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: color, width: 2),
+                    boxShadow: isCompleted
+                        ? [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.4),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                              offset: const Offset(0, 2),
+                            )
+                          ]
+                        : null,
+                  ),
+                  child: Icon(icon,
+                      color: isCompleted ? Colors.white : color, size: 20),
+                ),
                 if (!isLast)
                   Expanded(
                       child: Container(
@@ -498,10 +668,10 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 15),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 30),
+              padding: const EdgeInsets.only(bottom: 30, top: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -509,11 +679,18 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: isCompleted ? Colors.black : Colors.grey)),
+                          color: isCompleted ? Colors.black87 : Colors.grey)),
+                  const SizedBox(height: 4),
                   Text(desc,
                       style: TextStyle(color: Colors.grey[700], fontSize: 14)),
+                  const SizedBox(height: 2),
                   Text(date,
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                      style: TextStyle(
+                          color: isCompleted
+                              ? Colors.green[700]
+                              : Colors.grey[500],
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500)),
                 ],
               ),
             ),

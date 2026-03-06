@@ -315,6 +315,9 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                     radius: 32,
                     backgroundColor: Colors.white.withValues(alpha: 0.2),
                     backgroundImage: drawerImage,
+                    onBackgroundImageError: drawerImage != null
+                        ? (e, s) => debugPrint('Drawer image load error: $e')
+                        : null,
                     child: drawerImage == null
                         ? const Text("AP",
                             style: TextStyle(
@@ -1354,9 +1357,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   File? _profileImage;
   bool _isEditing = false;
   bool _isSaving = false;
+  bool _hasChanges = false;
 
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
+  late TextEditingController _companyRegController;
+  late TextEditingController _halalCertController;
+  late TextEditingController _addressController;
 
   @override
   void initState() {
@@ -1365,13 +1372,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _nameController = TextEditingController(text: _userData['name']);
     _phoneController = TextEditingController(
         text: _userData['phone_number'] ?? _userData['phone']);
+    _companyRegController = TextEditingController(
+        text: _userData['processor_profile']?['company_reg_no'] ?? '');
+    _halalCertController = TextEditingController(
+        text: _userData['processor_profile']?['halal_cert_no'] ?? '');
+    _addressController = TextEditingController(
+        text: _userData['processor_profile']?['factory_address'] ?? '');
+    _nameController.addListener(_markDirty);
+    _phoneController.addListener(_markDirty);
+    _companyRegController.addListener(_markDirty);
+    _halalCertController.addListener(_markDirty);
+    _addressController.addListener(_markDirty);
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _companyRegController.dispose();
+    _halalCertController.dispose();
+    _addressController.dispose();
     super.dispose();
+  }
+
+  void _markDirty() {
+    if (!_isEditing || _hasChanges) return;
+    setState(() => _hasChanges = true);
+  }
+
+  void _resetDraft() {
+    _nameController.text = _userData['name'] ?? "";
+    _phoneController.text =
+        _userData['phone_number'] ?? _userData['phone'] ?? "";
+    _companyRegController.text =
+        _userData['processor_profile']?['company_reg_no'] ?? '';
+    _halalCertController.text =
+        _userData['processor_profile']?['halal_cert_no'] ?? '';
+    _addressController.text =
+        _userData['processor_profile']?['factory_address'] ?? '';
+    _profileImage = null;
+    _hasChanges = false;
+  }
+
+  void _toggleEditing() {
+    setState(() {
+      _isEditing = !_isEditing;
+      if (!_isEditing) _resetDraft();
+    });
   }
 
   Future<void> _pickImage() async {
@@ -1379,7 +1426,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
-      setState(() => _profileImage = File(image.path));
+      setState(() {
+        _profileImage = File(image.path);
+        _hasChanges = true;
+      });
     }
   }
 
@@ -1394,6 +1444,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       request.headers['Authorization'] = 'Bearer $token';
       request.fields['name'] = _nameController.text;
       request.fields['phone'] = _phoneController.text;
+      request.fields['company_reg_no'] = _companyRegController.text;
+      request.fields['halal_cert_no'] = _halalCertController.text;
+      request.fields['factory_address'] = _addressController.text;
 
       if (_profileImage != null) {
         request.files.add(await http.MultipartFile.fromPath(
@@ -1409,6 +1462,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _userData = updatedData;
           _isEditing = false;
           _profileImage = null;
+          _hasChanges = false;
         });
         widget.onProfileUpdate();
         if (mounted) {
@@ -1462,19 +1516,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
         actions: [
           IconButton(
-            icon: Icon(_isEditing ? Icons.close : Icons.edit,
-                color: Colors.white),
-            onPressed: () {
-              setState(() {
-                _isEditing = !_isEditing;
-                if (!_isEditing) {
-                  _nameController.text = _userData['name'] ?? "";
-                  _phoneController.text =
-                      _userData['phone_number'] ?? _userData['phone'] ?? "";
-                  _profileImage = null;
-                }
-              });
-            },
+            icon: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              transitionBuilder: (child, animation) => RotationTransition(
+                turns: Tween<double>(begin: 0.85, end: 1).animate(animation),
+                child: FadeTransition(opacity: animation, child: child),
+              ),
+              child: Icon(
+                _isEditing ? Icons.close_rounded : Icons.edit_rounded,
+                key: ValueKey(_isEditing),
+                color: Colors.white,
+              ),
+            ),
+            onPressed: _toggleEditing,
           ),
           const SizedBox(width: 10),
         ],
@@ -1486,6 +1540,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             children: [
               const SizedBox(height: 30),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SizeTransition(sizeFactor: animation, child: child),
+                ),
+                child: _isEditing
+                    ? Container(
+                        key: const ValueKey('editing-banner'),
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color:
+                                const Color(0xFF2E7D32).withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.edit_note_rounded,
+                                size: 18, color: Color(0xFF2E7D32)),
+                            const SizedBox(width: 8),
+                            Text(
+                              _hasChanges
+                                  ? "Unsaved changes"
+                                  : "Editing mode enabled",
+                              style: const TextStyle(
+                                  color: Color(0xFF1B5E20),
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('view-banner')),
+              ),
               GlassCard(
                 child: Padding(
                   padding: const EdgeInsets.all(25.0),
@@ -1496,19 +1589,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Stack(
                           alignment: Alignment.bottomRight,
                           children: [
-                            Container(
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                    color: const Color(0xFF2E7D32)
-                                        .withValues(alpha: 0.3),
-                                    width: 3),
+                                    color: const Color(0xFF2E7D32).withValues(
+                                        alpha: _isEditing ? 0.65 : 0.3),
+                                    width: _isEditing ? 4 : 3),
+                                boxShadow: _isEditing
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(0xFF2E7D32)
+                                              .withValues(alpha: 0.25),
+                                          blurRadius: 18,
+                                          spreadRadius: 1,
+                                        )
+                                      ]
+                                    : null,
                               ),
                               child: CircleAvatar(
                                 radius: 50,
                                 backgroundColor: const Color(0xFF2E7D32)
                                     .withValues(alpha: 0.1),
                                 backgroundImage: backgroundImage,
+                                onBackgroundImageError: backgroundImage != null
+                                    ? (e, s) => debugPrint(
+                                        'Profile image load error: $e')
+                                    : null,
                                 child: backgroundImage == null
                                     ? const Text("AP",
                                         style: TextStyle(
@@ -1519,14 +1628,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                             if (_isEditing)
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF2E7D32),
-                                  shape: BoxShape.circle,
+                              AnimatedScale(
+                                duration: const Duration(milliseconds: 180),
+                                scale: _hasChanges ? 1.08 : 1,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF2E7D32),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.camera_alt,
+                                      size: 16, color: Colors.white),
                                 ),
-                                child: const Icon(Icons.camera_alt,
-                                    size: 16, color: Colors.white),
                               ),
                           ],
                         ),
@@ -1609,15 +1722,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   children: [
                     _buildInfoTile(
+                        icon: Icons.business_outlined,
+                        label: "Company Reg No",
+                        value: companyReg,
+                        isEditable: _isEditing,
+                        controller: _companyRegController),
+                    Divider(
+                        height: 1, color: Colors.grey.withValues(alpha: 0.2)),
+                    _buildInfoTile(
                         icon: Icons.location_on_outlined,
                         label: "Address",
-                        value: address),
+                        value: address,
+                        isEditable: _isEditing,
+                        controller: _addressController),
                     Divider(
                         height: 1, color: Colors.grey.withValues(alpha: 0.2)),
                     _buildInfoTile(
                         icon: Icons.verified_user_outlined,
                         label: "Halal Cert No",
-                        value: halalCert),
+                        value: halalCert,
+                        isEditable: _isEditing,
+                        controller: _halalCertController),
                   ],
                 ),
               ),
@@ -1626,23 +1751,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
-      floatingActionButton: _isEditing
-          ? FloatingActionButton.extended(
-              onPressed: _isSaving ? null : _updateProfile,
-              backgroundColor: const Color(0xFF2E7D32),
-              foregroundColor: Colors.white,
-              elevation: 4,
-              icon: _isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.save),
-              label: Text(_isSaving ? "Saving..." : "Save Changes",
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-            )
-          : null,
+      floatingActionButton: AnimatedSaveFab(
+        isVisible: _isEditing,
+        isSaving: _isSaving,
+        hasChanges: _hasChanges,
+        color: const Color(0xFF2E7D32),
+        heroTag: 'processor-profile-save',
+        onPressed: _updateProfile,
+      ),
     );
   }
 

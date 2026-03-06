@@ -379,6 +379,9 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                     radius: 32,
                     backgroundColor: Colors.white.withValues(alpha: 0.2),
                     backgroundImage: drawerImage,
+                    onBackgroundImageError: drawerImage != null
+                        ? (e, s) => debugPrint('Drawer image load error: $e')
+                        : null,
                     child: drawerImage == null
                         ? const Icon(Icons.person,
                             size: 32, color: Colors.white)
@@ -1146,10 +1149,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   File? _profileImage;
   bool _isEditing = false;
   bool _isSaving = false;
+  bool _hasChanges = false;
 
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
   late TextEditingController _vehiclePlateController;
+  late TextEditingController _vehicleTypeController;
+  late TextEditingController _licenseController;
 
   @override
   void initState() {
@@ -1160,6 +1166,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         text: _userData['phone_number'] ?? _userData['phone']);
     _vehiclePlateController = TextEditingController(
         text: _userData['logistics_profile']?['vehicle_plate_no'] ?? '');
+    _vehicleTypeController = TextEditingController(
+        text: _userData['logistics_profile']?['vehicle_type'] ?? '');
+    _licenseController = TextEditingController(
+        text: _userData['logistics_profile']?['driver_license_no'] ?? '');
+    _nameController.addListener(_markDirty);
+    _phoneController.addListener(_markDirty);
+    _vehiclePlateController.addListener(_markDirty);
+    _vehicleTypeController.addListener(_markDirty);
+    _licenseController.addListener(_markDirty);
   }
 
   @override
@@ -1167,7 +1182,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _vehiclePlateController.dispose();
+    _vehicleTypeController.dispose();
+    _licenseController.dispose();
     super.dispose();
+  }
+
+  void _markDirty() {
+    if (!_isEditing || _hasChanges) return;
+    setState(() => _hasChanges = true);
+  }
+
+  void _resetDraft() {
+    _nameController.text = _userData['name'] ?? "";
+    _phoneController.text =
+        _userData['phone_number'] ?? _userData['phone'] ?? "";
+    _vehiclePlateController.text =
+        _userData['logistics_profile']?['vehicle_plate_no'] ?? '';
+    _vehicleTypeController.text =
+        _userData['logistics_profile']?['vehicle_type'] ?? '';
+    _licenseController.text =
+        _userData['logistics_profile']?['driver_license_no'] ?? '';
+    _profileImage = null;
+    _hasChanges = false;
+  }
+
+  void _toggleEditing() {
+    setState(() {
+      _isEditing = !_isEditing;
+      if (!_isEditing) _resetDraft();
+    });
   }
 
   Future<void> _pickImage() async {
@@ -1175,7 +1218,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
-      setState(() => _profileImage = File(image.path));
+      setState(() {
+        _profileImage = File(image.path);
+        _hasChanges = true;
+      });
     }
   }
 
@@ -1192,6 +1238,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       request.fields['phone'] = _phoneController.text;
 
       request.fields['vehicle_plate_no'] = _vehiclePlateController.text;
+      request.fields['vehicle_type'] = _vehicleTypeController.text;
+      request.fields['driver_license_no'] = _licenseController.text;
 
       if (_profileImage != null) {
         request.files.add(await http.MultipartFile.fromPath(
@@ -1207,6 +1255,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _userData = updatedData;
           _isEditing = false;
           _profileImage = null;
+          _hasChanges = false;
         });
         widget.onProfileUpdate();
         if (mounted) {
@@ -1224,7 +1273,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text("Connection Error"), backgroundColor: Colors.red));
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -1256,18 +1305,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
         actions: [
           IconButton(
-            icon: Icon(_isEditing ? Icons.close : Icons.edit,
-                color: Colors.white),
-            onPressed: () {
-              setState(() {
-                _isEditing = !_isEditing;
-                if (!_isEditing) {
-                  _nameController.text = _userData['name'] ?? "";
-                  _vehiclePlateController.text = vehiclePlate;
-                  _profileImage = null;
-                }
-              });
-            },
+            icon: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              transitionBuilder: (child, animation) => RotationTransition(
+                turns: Tween<double>(begin: 0.85, end: 1).animate(animation),
+                child: FadeTransition(opacity: animation, child: child),
+              ),
+              child: Icon(
+                _isEditing ? Icons.close_rounded : Icons.edit_rounded,
+                key: ValueKey(_isEditing),
+                color: Colors.white,
+              ),
+            ),
+            onPressed: _toggleEditing,
           ),
           const SizedBox(width: 10),
         ],
@@ -1279,6 +1329,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             children: [
               const SizedBox(height: 30),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SizeTransition(sizeFactor: animation, child: child),
+                ),
+                child: _isEditing
+                    ? Container(
+                        key: const ValueKey('editing-banner'),
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color:
+                                const Color(0xFF1565C0).withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.edit_note_rounded,
+                                size: 18, color: Color(0xFF1565C0)),
+                            const SizedBox(width: 8),
+                            Text(
+                              _hasChanges
+                                  ? "Unsaved changes"
+                                  : "Editing mode enabled",
+                              style: const TextStyle(
+                                  color: Color(0xFF0D47A1),
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('view-banner')),
+              ),
               GlassCard(
                 child: Padding(
                   padding: const EdgeInsets.all(25.0),
@@ -1289,19 +1378,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Stack(
                           alignment: Alignment.bottomRight,
                           children: [
-                            Container(
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                    color: const Color(0xFF1565C0)
-                                        .withValues(alpha: 0.3),
-                                    width: 3),
+                                    color: const Color(0xFF1565C0).withValues(
+                                        alpha: _isEditing ? 0.65 : 0.3),
+                                    width: _isEditing ? 4 : 3),
+                                boxShadow: _isEditing
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(0xFF1565C0)
+                                              .withValues(alpha: 0.2),
+                                          blurRadius: 18,
+                                          spreadRadius: 1,
+                                        )
+                                      ]
+                                    : null,
                               ),
                               child: CircleAvatar(
                                 radius: 50,
                                 backgroundColor: const Color(0xFF1565C0)
                                     .withValues(alpha: 0.1),
                                 backgroundImage: backgroundImage,
+                                onBackgroundImageError: backgroundImage != null
+                                    ? (e, s) => debugPrint(
+                                        'Profile image load error: $e')
+                                    : null,
                                 child: backgroundImage == null
                                     ? const Icon(Icons.person,
                                         size: 50, color: Color(0xFF1565C0))
@@ -1309,14 +1414,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                             if (_isEditing)
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF1565C0),
-                                  shape: BoxShape.circle,
+                              AnimatedScale(
+                                duration: const Duration(milliseconds: 180),
+                                scale: _hasChanges ? 1.08 : 1,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF1565C0),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.camera_alt,
+                                      size: 16, color: Colors.white),
                                 ),
-                                child: const Icon(Icons.camera_alt,
-                                    size: 16, color: Colors.white),
                               ),
                           ],
                         ),
@@ -1373,7 +1482,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildInfoTile(
                         icon: Icons.category,
                         label: "Vehicle Type",
-                        value: vehicleType),
+                        value: vehicleType,
+                        isEditable: _isEditing,
+                        controller: _vehicleTypeController),
                   ],
                 ),
               ),
@@ -1385,7 +1496,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildInfoTile(
                         icon: Icons.card_membership,
                         label: "Driver License",
-                        value: licenseNo),
+                        value: licenseNo,
+                        isEditable: _isEditing,
+                        controller: _licenseController),
                     Divider(
                         height: 1, color: Colors.grey.withValues(alpha: 0.2)),
                     _buildInfoTile(
@@ -1408,23 +1521,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
-      floatingActionButton: _isEditing
-          ? FloatingActionButton.extended(
-              onPressed: _isSaving ? null : _updateProfile,
-              backgroundColor: const Color(0xFF1565C0),
-              foregroundColor: Colors.white,
-              elevation: 4,
-              icon: _isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.save),
-              label: Text(_isSaving ? "Saving..." : "Save Changes",
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-            )
-          : null,
+      floatingActionButton: AnimatedSaveFab(
+        isVisible: _isEditing,
+        isSaving: _isSaving,
+        hasChanges: _hasChanges,
+        color: const Color(0xFF1565C0),
+        heroTag: 'logistics-profile-save',
+        onPressed: _updateProfile,
+      ),
     );
   }
 

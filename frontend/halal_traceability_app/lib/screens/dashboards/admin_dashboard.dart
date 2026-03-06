@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../config.dart';
 import 'widgets/dashboard_widgets.dart';
@@ -309,39 +310,51 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 final batch = _batches[i];
                 return StaggeredListItem(
                   index: 4 + i,
-                  child: GlassCard(
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color:
-                                const Color(0xFF6C63FF).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.inventory_2_rounded,
-                              color: Color(0xFF6C63FF), size: 22),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("Batch ${batch['batch_id']}",
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 15)),
-                              const SizedBox(height: 3),
-                              Text(
-                                  "${batch['product_type']} • ${batch['status']}",
-                                  style: TextStyle(
-                                      color: Colors.grey[500], fontSize: 12)),
-                            ],
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AdminBatchDetailScreen(
+                            batchId: batch['id'].toString(),
                           ),
                         ),
-                        const Icon(Icons.chevron_right_rounded,
-                            color: Colors.grey),
-                      ],
+                      );
+                    },
+                    child: GlassCard(
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6C63FF)
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.inventory_2_rounded,
+                                color: Color(0xFF6C63FF), size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("Batch ${batch['batch_id']}",
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 15)),
+                                const SizedBox(height: 3),
+                                Text(
+                                    "${batch['product_type']} • ${batch['status']}",
+                                    style: TextStyle(
+                                        color: Colors.grey[500], fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded,
+                              color: Colors.grey),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -515,51 +528,63 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     final batch = _batches[index];
                     return StaggeredListItem(
                       index: index,
-                      child: GlassCard(
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF6C63FF)
-                                    .withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: const Icon(Icons.qr_code_rounded,
-                                  color: Color(0xFF6C63FF)),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("Batch ${batch['batch_id']}",
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w700)),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                      "${batch['product_type']} (${batch['weight']})",
-                                      style: TextStyle(
-                                          color: Colors.grey[500],
-                                          fontSize: 12)),
-                                ],
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AdminBatchDetailScreen(
+                                batchId: batch['id'].toString(),
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF6C63FF)
-                                    .withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(20),
+                          );
+                        },
+                        child: GlassCard(
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF6C63FF)
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(Icons.qr_code_rounded,
+                                    color: Color(0xFF6C63FF)),
                               ),
-                              child: Text(batch['status'],
-                                  style: const TextStyle(
-                                      color: Color(0xFF6C63FF),
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 11)),
-                            ),
-                          ],
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text("Batch ${batch['batch_id']}",
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w700)),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                        "${batch['product_type']} (${batch['weight']})",
+                                        style: TextStyle(
+                                            color: Colors.grey[500],
+                                            fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF6C63FF)
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(batch['status'],
+                                    style: const TextStyle(
+                                        color: Color(0xFF6C63FF),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11)),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -840,6 +865,311 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               : _buildIncidentReports(),
                 ),
               ),
+      ),
+    );
+  }
+}
+
+class AdminBatchDetailScreen extends StatefulWidget {
+  final String batchId;
+  const AdminBatchDetailScreen({super.key, required this.batchId});
+
+  @override
+  State<AdminBatchDetailScreen> createState() => _AdminBatchDetailScreenState();
+}
+
+class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
+  bool _isLoading = true;
+  Map<String, dynamic>? _batchData;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBatchDetails();
+  }
+
+  Future<void> _fetchBatchDetails() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final response = await http.get(
+        Uri.parse('$baseUrl/batches/${widget.batchId}'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json'
+        },
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _batchData = jsonDecode(response.body)['batch'];
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint("Error fetching detail: $e");
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        title: const Text("Batch Details",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF6C63FF),
+        elevation: 0,
+      ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF6C63FF)))
+          : _batchData == null
+              ? Center(
+                  child: Text("Error loading details.",
+                      style: TextStyle(color: Colors.grey[600])))
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeaderCard(),
+                      const SizedBox(height: 24),
+                      const SectionTitle(
+                          title: "Product Information",
+                          accentColor: Color(0xFF6C63FF)),
+                      const SizedBox(height: 12),
+                      _buildInfoCard(),
+                      const SizedBox(height: 24),
+                      const SectionTitle(
+                          title: "Transit & Timeline",
+                          accentColor: Color(0xFF6C63FF)),
+                      const SizedBox(height: 12),
+                      _buildTimeline(),
+                    ],
+                  ),
+                ),
+    );
+  }
+
+  Widget _buildHeaderCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6C63FF), Color(0xFF5A52D5)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+              color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
+              blurRadius: 15,
+              offset: const Offset(0, 8))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(_batchData!['status'],
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12)),
+              ),
+              GestureDetector(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => Dialog(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text("Batch QR Code",
+                                style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF2C3E50))),
+                            const SizedBox(height: 20),
+                            QrImageView(
+                              data: _batchData!['qr_code_hash'] ??
+                                  _batchData!['batch_id'],
+                              version: QrVersions.auto,
+                              size: 200.0,
+                            ),
+                            const SizedBox(height: 20),
+                            Text(_batchData!['batch_id'],
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                    fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () => Navigator.pop(context),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF6C63FF),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                child: const Text("Close"),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.qr_code, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(_batchData!['batch_id'],
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(
+              "Held by: ${_batchData!['current_holder']?['name'] ?? 'Unknown'}",
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard() {
+    return GlassCard(
+      child: Column(
+        children: [
+          _buildDetailRow("Product Type", _batchData!['product_type']),
+          const Divider(height: 24),
+          _buildDetailRow("Weight", _batchData!['weight']),
+          const Divider(height: 24),
+          _buildDetailRow("Slaughter Date", _batchData!['slaughter_date']),
+          const Divider(height: 24),
+          _buildDetailRow("Origin Farm", _batchData!['origin_farm']),
+          const Divider(height: 24),
+          _buildDetailRow(
+              "Freshness Score", "${_batchData!['freshness_score']}/100"),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        Text(value,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
+      ],
+    );
+  }
+
+  Widget _buildTimeline() {
+    final checkpoints = _batchData!['checkpoints'] as List<dynamic>? ?? [];
+    if (checkpoints.isEmpty) {
+      return GlassCard(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Center(
+              child: Text("No checkpoints recorded yet.",
+                  style: TextStyle(color: Colors.grey[500]))),
+        ),
+      );
+    }
+
+    return GlassCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: List.generate(checkpoints.length, (index) {
+          final cp = checkpoints[index];
+          final isLast = index == checkpoints.length - 1;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                children: [
+                  Container(
+                    width: 14,
+                    height: 14,
+                    decoration: const BoxDecoration(
+                        color: Color(0xFF6C63FF), shape: BoxShape.circle),
+                  ),
+                  if (!isLast)
+                    Container(
+                        width: 2,
+                        height: 50,
+                        color: const Color(0xFF6C63FF).withValues(alpha: 0.3)),
+                ],
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(cp['location_name'],
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text(
+                        "${cp['action_type'].toString().toUpperCase()} • Temp: ${cp['temperature']}°C",
+                        style:
+                            TextStyle(color: Colors.grey[600], fontSize: 12)),
+                    if (cp['notes'] != null) ...[
+                      const SizedBox(height: 4),
+                      Text('"${cp['notes']}"',
+                          style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic)),
+                    ],
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }),
       ),
     );
   }

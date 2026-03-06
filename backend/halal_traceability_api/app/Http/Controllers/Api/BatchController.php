@@ -144,10 +144,14 @@ class BatchController extends Controller
     }
 
     /**
-     * Get a single batch by ID.
+     * Get a single batch by ID, including its checkpoints and current holder.
      */
     public function show($id)
     {
-        return response()->json(Batch::findOrFail($id));
+        $batch = Batch::with(['checkpoints' => function ($q) {
+            $q->orderBy('created_at', 'desc');
+        }, 'currentHolder', 'processor'])->findOrFail($id);
+
+        return response()->json(['batch' => $batch]);
     }
 }
