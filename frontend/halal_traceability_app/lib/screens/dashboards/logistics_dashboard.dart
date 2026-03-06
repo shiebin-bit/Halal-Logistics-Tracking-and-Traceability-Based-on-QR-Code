@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config.dart';
+import '../../services/auth_session_service.dart';
 import 'widgets/dashboard_widgets.dart';
 
 class LogisticsDashboard extends StatefulWidget {
@@ -336,10 +337,10 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
   }
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    if (mounted)
+    await AuthSessionService.clearAuthSession();
+    if (mounted) {
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    }
   }
 
   // --- REDESIGNED DRAWER ---

@@ -1,0 +1,11 @@
+Analyzing login_screen.dart...                                  
+
+   info - Don't use 'BuildContext's across async gaps - lib\screens\login_screen.dart:149:17 - use_build_context_synchronously
+   info - Statements in an if should be enclosed in a block - lib\screens\login_screen.dart:156:17 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\screens\login_screen.dart:158:17 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\screens\login_screen.dart:160:17 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\screens\login_screen.dart:161:44 - curly_braces_in_flow_control_structures
+   info - Don't use 'BuildContext's across async gaps - lib\screens\login_screen.dart:163:46 - use_build_context_synchronously
+  error - The named parameter 'options' isn't defined - lib\screens\login_screen.dart:203:9 - undefined_named_parameter
+  error - The name 'AuthenticationOptions' isn't a class - lib\screens\login_screen.dart:203:24 - creation_with_non_type
+

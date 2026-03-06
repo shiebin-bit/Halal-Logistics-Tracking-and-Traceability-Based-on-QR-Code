@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../config.dart';
-import './dashboards/admin_dashboard.dart';
+import '../services/auth_session_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,6 +18,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final LocalAuthentication _localAuth = LocalAuthentication();
 
   // Controllers
   final _emailController = TextEditingController();
@@ -23,9 +28,18 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
   bool _isLoading = false;
   bool _rememberMe = false;
+  bool _biometricEnabled = false;
+  bool _biometricAvailable = false;
+
+  static const int _maxFailedAttempts = 5;
+  static const Duration _lockoutDuration = Duration(minutes: 5);
+  int _failedAttempts = 0;
+  DateTime? _lockoutUntil;
+  Timer? _lockoutTimer;
 
   @override
   void dispose() {
+    _lockoutTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -34,118 +48,465 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSavedEmail();
+    _initializeLoginState();
   }
 
-  /// Load saved email from SharedPreferences for "Remember Me" feature.
+  Future<void> _initializeLoginState() async {
+    await _loadSavedEmail();
+    await _loadBiometricState();
+    await _loadLockoutState();
+  }
+
   Future<void> _loadSavedEmail() async {
-    final prefs = await SharedPreferences.getInstance();
+    final rememberMe = await AuthSessionService.getRememberMe();
+    final savedEmail = await AuthSessionService.getSavedEmail();
+
+    if (!mounted) return;
+
     setState(() {
-      _rememberMe = prefs.getBool('remember_me') ?? false;
-      if (_rememberMe) {
-        _emailController.text = prefs.getString('saved_email') ?? '';
+      _rememberMe = rememberMe;
+      if (rememberMe && savedEmail != null) {
+        _emailController.text = savedEmail;
       }
     });
   }
 
-  /// Authenticate user via API and navigate to role-specific dashboard.
+  Future<void> _loadBiometricState() async {
+    bool isAvailable = false;
+    try {
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isSupported = await _localAuth.isDeviceSupported();
+      final enrolled = await _localAuth.getAvailableBiometrics();
+      isAvailable = (canCheck || isSupported) && enrolled.isNotEmpty;
+    } catch (_) {
+      isAvailable = false;
+    }
+
+    final isEnabled = await AuthSessionService.isBiometricEnabled();
+
+    if (!mounted) return;
+
+    setState(() {
+      _biometricAvailable = isAvailable;
+      _biometricEnabled = isAvailable && isEnabled;
+    });
+  }
+
+  Future<void> _loadLockoutState() async {
+    final attempts = await AuthSessionService.getFailedAttempts();
+    final lockoutUntil = await AuthSessionService.getLockoutUntil();
+
+    if (!mounted) return;
+
+    setState(() {
+      _failedAttempts = attempts;
+      _lockoutUntil = lockoutUntil;
+    });
+
+    if (_isLockedOut) {
+      _startLockoutTicker();
+    } else {
+      await AuthSessionService.clearLockout();
+    }
+  }
+
+  bool get _isLockedOut {
+    if (_lockoutUntil == null) {
+      return false;
+    }
+    return DateTime.now().isBefore(_lockoutUntil!);
+  }
+
+  String get _lockoutRemainingLabel {
+    if (!_isLockedOut) return '';
+    final diff = _lockoutUntil!.difference(DateTime.now());
+    final minutes = diff.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = diff.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  void _startLockoutTicker() {
+    _lockoutTimer?.cancel();
+    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      if (!mounted) return;
+
+      if (!_isLockedOut) {
+        _lockoutTimer?.cancel();
+        await AuthSessionService.clearLockout();
+        if (mounted) {
+          setState(() {
+            _failedAttempts = 0;
+            _lockoutUntil = null;
+          });
+        }
+        return;
+      }
+
+      setState(() {});
+    });
+  }
+
+  Future<void> _recordFailedAttempt() async {
+    final attempts = _failedAttempts + 1;
+    await AuthSessionService.setFailedAttempts(attempts);
+
+    if (attempts >= _maxFailedAttempts) {
+      final lockoutUntil = DateTime.now().add(_lockoutDuration);
+      await AuthSessionService.setLockoutUntil(lockoutUntil);
+      if (mounted) {
+        setState(() {
+          _failedAttempts = attempts;
+          _lockoutUntil = lockoutUntil;
+        });
+      }
+      _startLockoutTicker();
+      return;
+    }
+
+    if (mounted) {
+      setState(() => _failedAttempts = attempts);
+    }
+  }
+
+  Future<void> _clearFailedAttempts() async {
+    await AuthSessionService.clearLockout();
+    if (mounted) {
+      setState(() {
+        _failedAttempts = 0;
+        _lockoutUntil = null;
+      });
+    }
+  }
+
   Future<void> _handleLogin() async {
-    if (_formKey.currentState!.validate()) {
+    if (_isLockedOut) {
+      _showError(
+        'Too many failed attempts. Try again in $_lockoutRemainingLabel.',
+      );
+      return;
+    }
 
-      setState(() => _isLoading = true);
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
-      final url = Uri.parse('$apiBaseUrl/login');
+    setState(() => _isLoading = true);
 
-      try {
-        final response = await http.post(
-          url,
-          headers: {'Accept': 'application/json'},
-          body: {
-            'email': _emailController.text.trim(),
-            'password': _passwordController.text,
-          },
+    final url = Uri.parse('$apiBaseUrl/login');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Accept': 'application/json'},
+        body: {
+          'email': _emailController.text.trim(),
+          'password': _passwordController.text,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final user = (data['user'] as Map).cast<String, dynamic>();
+        final token = data['token'].toString();
+
+        await AuthSessionService.saveLoginSession(token: token, user: user);
+        await _saveRoleSpecificData(user);
+        await AuthSessionService.setRememberMe(
+          rememberMe: _rememberMe,
+          email: _emailController.text,
         );
 
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final user = data['user']; // The full user object from Laravel
-          String token = data['token'];
-          String role = user['role'];
-
-          // --- SAVE DATA ---
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('isLoggedIn', true);
-          await prefs.setString('auth_token', token);
-          await prefs.setString('userRole', role);
-          await prefs.setString('userName', user['name']);
-          await prefs.setString('userId', user['id'].toString());
-
-          // --- NEW: SAVE SPECIFIC PROFILE DATA ---
-          // We check which profile exists and save relevant details
-          if (role == 'logistics' && user['logistics_profile'] != null) {
-            await prefs.setString('vehicle_plate',
-                user['logistics_profile']['vehicle_plate_no'] ?? '');
-            await prefs.setString('license_no',
-                user['logistics_profile']['driver_license_no'] ?? '');
-          } else if (role == 'processor' && user['processor_profile'] != null) {
-            await prefs.setString('company_reg',
-                user['processor_profile']['company_reg_no'] ?? '');
-            await prefs.setString(
-                'halal_cert', user['processor_profile']['halal_cert_no'] ?? '');
-          } else if (role == 'retailer' && user['retailer_profile'] != null) {
-            await prefs.setString(
-                'store_name', user['retailer_profile']['store_name'] ?? '');
-          }
-
-          // Handle "Remember Me" (No changes needed here)
-          if (_rememberMe) {
-            await prefs.setBool('remember_me', true);
-            await prefs.setString('saved_email', _emailController.text.trim());
-          } else {
-            await prefs.remove('remember_me');
-            await prefs.remove('saved_email');
-          }
-
-          // Route Logic (No changes needed)
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Login Successful!'),
-                  backgroundColor: Colors.green),
-            );
-            await Future.delayed(const Duration(milliseconds: 500));
-
-            if (role == 'admin') {
-              // Direct navigation to Admin Dashboard
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const AdminDashboard()),
-              );
-            } else {
-              // Existing logic for other roles
-              String route = '/login';
-              if (role == 'processor')
-                route = '/dashboard/processor';
-              else if (role == 'logistics')
-                route = '/dashboard/logistics';
-              else if (role == 'retailer')
-                route = '/dashboard/retailer';
-              else if (role == 'consumer') route = '/dashboard/consumer';
-
-              Navigator.pushReplacementNamed(context, route);
-            }
-          }
+        if (_biometricAvailable) {
+          await AuthSessionService.setBiometricEnabled(_biometricEnabled);
         } else {
-          final errorData = jsonDecode(response.body);
-          _showError(errorData['message'] ?? 'Login failed');
+          await AuthSessionService.setBiometricEnabled(false);
         }
-      } catch (e) {
-        _showError('Connection failed. Check server or internet.');
-      } finally {
-        if (mounted) setState(() => _isLoading = false);
+
+        await _clearFailedAttempts();
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Login Successful!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (!mounted) return;
+
+        Navigator.pushReplacementNamed(
+          context,
+          _routeForRole((user['role'] ?? '').toString()),
+        );
+      } else {
+        final errorData = jsonDecode(response.body);
+        final message = (errorData['message'] ?? 'Login failed').toString();
+        await _recordFailedAttempt();
+
+        if (_isLockedOut) {
+          _showError(
+            'Account temporarily locked for $_lockoutRemainingLabel.',
+          );
+        } else {
+          _showError(message);
+        }
+      }
+    } catch (_) {
+      _showError('Connection failed. Check server or internet.');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _saveRoleSpecificData(Map<String, dynamic> user) async {
+    final prefs = await SharedPreferences.getInstance();
+    final role = (user['role'] ?? '').toString();
+
+    if (role == 'logistics' && user['logistics_profile'] != null) {
+      final profile = (user['logistics_profile'] as Map).cast<String, dynamic>();
+      await prefs.setString(
+        'vehicle_plate',
+        (profile['vehicle_plate_no'] ?? '').toString(),
+      );
+      await prefs.setString(
+        'license_no',
+        (profile['driver_license_no'] ?? '').toString(),
+      );
+      return;
+    }
+
+    if (role == 'processor' && user['processor_profile'] != null) {
+      final profile = (user['processor_profile'] as Map).cast<String, dynamic>();
+      await prefs.setString(
+        'company_reg',
+        (profile['company_reg_no'] ?? '').toString(),
+      );
+      await prefs.setString(
+        'halal_cert',
+        (profile['halal_cert_no'] ?? '').toString(),
+      );
+      return;
+    }
+
+    if (role == 'retailer' && user['retailer_profile'] != null) {
+      final profile = (user['retailer_profile'] as Map).cast<String, dynamic>();
+      await prefs.setString('store_name', (profile['store_name'] ?? '').toString());
+    }
+  }
+
+  String _routeForRole(String role) {
+    if (role == 'processor') {
+      return '/dashboard/processor';
+    }
+    if (role == 'logistics') {
+      return '/dashboard/logistics';
+    }
+    if (role == 'retailer') {
+      return '/dashboard/retailer';
+    }
+    if (role == 'admin') {
+      return '/dashboard/admin';
+    }
+    if (role == 'consumer') {
+      return '/dashboard/consumer';
+    }
+    return '/login';
+  }
+
+  Future<Map<String, dynamic>?> _fetchUserWithToken(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/user'),
+      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final user = (data['user'] as Map?)?.cast<String, dynamic>();
+      return user;
+    }
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      await AuthSessionService.clearAuthSession();
+      await AuthSessionService.setBiometricEnabled(false);
+    }
+
+    return null;
+  }
+
+  Future<void> _handleBiometricLogin() async {
+    if (_isLockedOut) {
+      _showError(
+        'Account temporarily locked for $_lockoutRemainingLabel.',
+      );
+      return;
+    }
+
+    if (!_biometricAvailable) {
+      _showError('Biometric authentication is not available on this device.');
+      return;
+    }
+
+    try {
+      final didAuthenticate = await _localAuth.authenticate(
+        localizedReason: 'Authenticate to sign in securely',
+        biometricOnly: true,
+        persistAcrossBackgrounding: true,
+      );
+
+      if (!didAuthenticate) {
+        return;
+      }
+
+      if (mounted) {
+        setState(() => _isLoading = true);
+      }
+
+      final token = await AuthSessionService.getSecureToken();
+      if (token == null) {
+        _showError('Please login with password once before using biometrics.');
+        return;
+      }
+
+      final user = await _fetchUserWithToken(token);
+      if (user == null) {
+        _showError('Saved session expired. Please sign in with password.');
+        return;
+      }
+
+      await AuthSessionService.saveLoginSession(token: token, user: user);
+      await _saveRoleSpecificData(user);
+      await _clearFailedAttempts();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Biometric login successful.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pushReplacementNamed(
+        context,
+        _routeForRole((user['role'] ?? '').toString()),
+      );
+    } on LocalAuthException catch (e) {
+      _showError('Biometric error: ${e.description ?? e.code.name}');
+    } catch (_) {
+      _showError('Biometric login failed. Please try password login.');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _requestPasswordReset(String email) async {
+    final response = await http.post(
+      Uri.parse('$apiBaseUrl/forgot-password'),
+      headers: {'Accept': 'application/json'},
+      body: {'email': email.trim()},
+    );
+
+    String message = 'If this email exists, a reset link has been sent.';
+    try {
+      final data = jsonDecode(response.body);
+      if (data['message'] != null) {
+        message = data['message'].toString();
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      _showError(message);
+    }
+  }
+
+  void _showForgotPasswordDialog() {
+    final controller = TextEditingController(text: _emailController.text.trim());
+
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        bool submitting = false;
+
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Reset Password'),
+              content: TextField(
+                controller: controller,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Corporate Email',
+                  hintText: 'name@company.com',
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: submitting ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: submitting
+                      ? null
+                      : () async {
+                          final email = controller.text.trim();
+                          if (!email.contains('@')) {
+                            _showError('Please enter a valid email address.');
+                            return;
+                          }
+
+                          setStateDialog(() => submitting = true);
+                          try {
+                            await _requestPasswordReset(email);
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          } catch (_) {
+                            _showError(
+                              'Unable to process reset now. Please contact Admin.',
+                            );
+                          } finally {
+                            if (mounted) {
+                              setStateDialog(() => submitting = false);
+                            }
+                          }
+                        },
+                  child: submitting
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Send Link'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _onBiometricToggle(bool value) {
+    if (!_biometricAvailable) {
+      _showError('Biometric authentication is not available on this device.');
+      return;
+    }
+    setState(() => _biometricEnabled = value);
   }
 
   void _showError(String message) {
@@ -192,8 +553,8 @@ class _LoginScreenState extends State<LoginScreen> {
               height: 200,
               width: 200,
               decoration: BoxDecoration(
-                color:
-                    Colors.white.withValues(alpha: 0.05), // Subtle transparent white
+                color: Colors.white
+                    .withValues(alpha: 0.05), // Subtle transparent white
                 shape: BoxShape.circle,
               ),
             ),
@@ -349,6 +710,27 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 10),
 
+                            if (_isLockedOut)
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange[50],
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.orange),
+                                ),
+                                child: Text(
+                                  'Too many failed attempts. Try again in '
+                                  '$_lockoutRemainingLabel.',
+                                  style: TextStyle(
+                                    color: Colors.orange[900],
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+
                             // Remember Me & Forgot PW
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -375,19 +757,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ],
                                 ),
                                 TextButton(
-                                  onPressed: () {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                              "Feature in progress. Please contact Admin to reset password."),
-                                          backgroundColor: Colors.grey,
-                                          duration: Duration(seconds: 2),
-                                        ),
-                                      );
-                                    }
-                                  },
+                                  onPressed: _showForgotPasswordDialog,
                                   child: Text(
                                     "Forgot Password?",
                                     style: TextStyle(
@@ -396,6 +766,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ],
                             ),
+                            if (_biometricAvailable)
+                              SwitchListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                activeThumbColor: const Color(0xFF1B5E20),
+                                title: Text(
+                                  'Enable Biometric Login',
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                value: _biometricEnabled,
+                                onChanged: _onBiometricToggle,
+                              ),
                             const SizedBox(height: 25),
 
                             // Login Button
@@ -403,7 +788,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: double.infinity,
                               height: 50,
                               child: ElevatedButton(
-                                onPressed: _isLoading ? null : _handleLogin,
+                                onPressed: (_isLoading || _isLockedOut)
+                                    ? null
+                                    : _handleLogin,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF1B5E20),
                                   foregroundColor: Colors.white,
@@ -417,18 +804,32 @@ class _LoginScreenState extends State<LoginScreen> {
                                         height: 24,
                                         width: 24,
                                         child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
                                       )
-                                    : const Text(
-                                        "SECURE LOGIN",
+                                    : Text(
+                                        _isLockedOut
+                                            ? "LOCKED ($_lockoutRemainingLabel)"
+                                            : "SECURE LOGIN",
                                         style: TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 16),
                                       ),
                               ),
                             ),
+                            if (_biometricAvailable && _biometricEnabled) ...[
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 48,
+                                child: OutlinedButton.icon(
+                                  onPressed: _isLoading ? null : _handleBiometricLogin,
+                                  icon: const Icon(Icons.fingerprint),
+                                  label: const Text('LOGIN WITH BIOMETRICS'),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -475,7 +876,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                         side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.3), width: 1),
+                            color: Colors.white.withValues(alpha: 0.3),
+                            width: 1),
                       ),
                     ),
                   ),

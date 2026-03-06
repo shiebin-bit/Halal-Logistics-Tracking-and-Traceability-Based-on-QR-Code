@@ -7,6 +7,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../config.dart';
+import '../../services/auth_session_service.dart';
 import 'widgets/dashboard_widgets.dart';
 
 class RetailerDashboard extends StatefulWidget {
@@ -252,8 +253,7 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
   }
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await AuthSessionService.clearAuthSession();
     if (mounted) {
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }

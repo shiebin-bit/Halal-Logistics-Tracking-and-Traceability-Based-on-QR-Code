@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../config.dart';
+import '../../services/auth_session_service.dart';
 import 'widgets/dashboard_widgets.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -161,8 +162,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await AuthSessionService.clearAuthSession();
     if (mounted) {
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }

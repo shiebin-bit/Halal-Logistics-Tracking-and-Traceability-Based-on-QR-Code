@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Validator;
 
 /**
@@ -135,6 +137,47 @@ class AuthController extends Controller
             'user' => $user,
             'token' => $token,
         ]);
+    }
+
+    /**
+     * Send password reset link to user's email.
+     * Returns a generic success message to avoid email enumeration.
+     */
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        try {
+            $status = Password::sendResetLink(
+                $request->only('email')
+            );
+
+            // Return generic response for both existing and non-existing emails.
+            if (
+                $status === Password::RESET_LINK_SENT ||
+                $status === Password::INVALID_USER
+            ) {
+                return response()->json([
+                    'message' => 'If the email exists, a reset link has been sent.'
+                ]);
+            }
+
+            Log::warning('Password reset request failed', [
+                'email' => $request->email,
+                'status' => $status,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Password reset exception', [
+                'email' => $request->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Unable to send reset link right now. Please contact admin.'
+        ], 500);
     }
 
     /**

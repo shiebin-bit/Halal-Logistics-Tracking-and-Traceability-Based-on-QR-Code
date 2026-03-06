@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 
 import '../../config.dart';
+import '../../services/auth_session_service.dart';
 import 'widgets/dashboard_widgets.dart';
 
 class ProcessorDashboard extends StatefulWidget {
@@ -186,8 +187,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
   }
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await AuthSessionService.clearAuthSession();
     if (mounted) {
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }

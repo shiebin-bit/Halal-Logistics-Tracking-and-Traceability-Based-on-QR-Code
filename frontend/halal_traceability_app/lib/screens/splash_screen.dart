@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/auth_session_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -49,18 +50,15 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _checkLoginStatus() async {
     // Artificial delay to show the logo
     await Future.delayed(const Duration(seconds: 3));
+    final user = await AuthSessionService.validateTokenAndFetchUser();
 
-    final prefs = await SharedPreferences.getInstance();
-    final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-    final String? savedRole = prefs.getString('userRole');
+    if (!mounted) return;
 
-    if (mounted) {
-      if (isLoggedIn && savedRole != null) {
-        String route = _getRouteForRole(savedRole);
-        Navigator.pushReplacementNamed(context, route);
-      } else {
-        Navigator.pushReplacementNamed(context, '/login');
-      }
+    if (user != null && user['role'] != null) {
+      final route = _getRouteForRole(user['role'].toString());
+      Navigator.pushReplacementNamed(context, route);
+    } else {
+      Navigator.pushReplacementNamed(context, '/login');
     }
   }
 
@@ -74,6 +72,8 @@ class _SplashScreenState extends State<SplashScreen>
         return '/dashboard/retailer';
       case 'admin':
         return '/dashboard/admin';
+      case 'consumer':
+        return '/dashboard/consumer';
       default:
         return '/login';
     }

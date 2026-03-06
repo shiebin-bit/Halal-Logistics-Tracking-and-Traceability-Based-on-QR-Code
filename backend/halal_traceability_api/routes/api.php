@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\RetailerController;
 // Public Routes (No Authentication Required)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::get('/public/batches', [BatchController::class, 'publicIndex']);
 
 
