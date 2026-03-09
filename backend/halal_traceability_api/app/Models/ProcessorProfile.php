@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * Stores processor-specific registration and halal certificate details.
+ */
 class ProcessorProfile extends Model
 {
     use HasFactory;
@@ -18,6 +21,7 @@ class ProcessorProfile extends Model
         'cert_document_path'
     ];
 
+    /** Get the owning user account for this processor profile. */
     public function user()
     {
         return $this->belongsTo(User::class);

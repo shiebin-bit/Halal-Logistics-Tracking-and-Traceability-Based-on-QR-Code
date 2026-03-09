@@ -12,10 +12,12 @@ import 'screens/dashboards/retailer_dashboard.dart';
 import 'screens/dashboards/admin_dashboard.dart';
 import 'screens/dashboards/consumer_dashboard.dart'; // We will create this next
 
+/// Application entry point.
 void main() {
   runApp(const HalalLogisticsApp());
 }
 
+/// Root widget that defines global theme and app navigation routes.
 class HalalLogisticsApp extends StatelessWidget {
   const HalalLogisticsApp({super.key});
 

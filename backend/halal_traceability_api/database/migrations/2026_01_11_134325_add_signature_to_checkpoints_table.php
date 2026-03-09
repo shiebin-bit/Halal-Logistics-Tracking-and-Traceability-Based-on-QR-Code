@@ -4,7 +4,9 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+// Adds digital signature storage for proof-of-handover in checkpoints.
 return new class extends Migration {
+    /** Apply the migration. */
     public function up()
     {
         Schema::table('checkpoints', function (Blueprint $table) {
@@ -19,6 +21,7 @@ return new class extends Migration {
         });
     }
 
+    /** Roll back the migration. */
     public function down()
     {
         Schema::table('checkpoints', function (Blueprint $table) {

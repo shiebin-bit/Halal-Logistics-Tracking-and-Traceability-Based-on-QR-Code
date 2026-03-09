@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
 import '../services/auth_session_service.dart';
 
+/// Sign-in screen with remember-me, biometric unlock, and lockout protection.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -51,12 +52,14 @@ class _LoginScreenState extends State<LoginScreen> {
     _initializeLoginState();
   }
 
+  /// Loads all persisted login settings required before user interaction.
   Future<void> _initializeLoginState() async {
     await _loadSavedEmail();
     await _loadBiometricState();
     await _loadLockoutState();
   }
 
+  /// Restores remembered email input if the user opted in previously.
   Future<void> _loadSavedEmail() async {
     final rememberMe = await AuthSessionService.getRememberMe();
     final savedEmail = await AuthSessionService.getSavedEmail();
@@ -71,6 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  /// Detects device biometric capability and stored app preference.
   Future<void> _loadBiometricState() async {
     bool isAvailable = false;
     try {
@@ -92,6 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  /// Restores failed-attempt state and resumes lockout countdown if needed.
   Future<void> _loadLockoutState() async {
     final attempts = await AuthSessionService.getFailedAttempts();
     final lockoutUntil = await AuthSessionService.getLockoutUntil();
@@ -146,6 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  /// Increments failed attempts and applies temporary lockout at threshold.
   Future<void> _recordFailedAttempt() async {
     final attempts = _failedAttempts + 1;
     await AuthSessionService.setFailedAttempts(attempts);

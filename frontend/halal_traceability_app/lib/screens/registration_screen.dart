@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import '../config.dart';
 
+/// Multi-role registration screen for processors, logistics, and retailers.
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
 
@@ -58,10 +59,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _businessRegController = TextEditingController(); // SSM
   final _outletAddressController = TextEditingController();
 
+  /// Normalizes phone inputs before validation/submission.
   String _normalizePhone(String input) {
     return input.replaceAll(RegExp(r'[\s-]'), '');
   }
 
+  /// Shared required-field validator used by form controls.
   String? _requiredValidator(String? value, String fieldLabel) {
     if (value == null || value.trim().isEmpty) {
       return '$fieldLabel is required';
@@ -69,6 +72,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return null;
   }
 
+  /// Validates a personal or company name with safe punctuation.
   String? _nameValidator(String? value) {
     final requiredError = _requiredValidator(value, 'Full Name');
     if (requiredError != null) return requiredError;
@@ -80,6 +84,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return null;
   }
 
+  /// Validates email structure before API submission.
   String? _emailValidator(String? value) {
     final requiredError = _requiredValidator(value, 'Email Address');
     if (requiredError != null) return requiredError;
@@ -88,6 +93,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return null;
   }
 
+  /// Validates normalized phone number format.
   String? _phoneValidator(String? value) {
     final requiredError = _requiredValidator(value, 'Phone Number');
     if (requiredError != null) return requiredError;
@@ -98,6 +104,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return null;
   }
 
+  /// Enforces minimum password strength policy on registration.
   String? _passwordValidator(String? value) {
     final requiredError = _requiredValidator(value, 'Password');
     if (requiredError != null) return requiredError;
@@ -109,6 +116,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return null;
   }
 
+  /// Validates registration ID-like fields (SSM/license/certificate).
   String? _idValidator(String? value, String label) {
     final requiredError = _requiredValidator(value, label);
     if (requiredError != null) return requiredError;
@@ -118,6 +126,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return null;
   }
 
+  /// Validates minimum address quality for profile records.
   String? _addressValidator(String? value, String label) {
     final requiredError = _requiredValidator(value, label);
     if (requiredError != null) return requiredError;
@@ -125,6 +134,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return null;
   }
 
+  /// Validates logistics vehicle plate format.
   String? _vehiclePlateValidator(String? value) {
     final requiredError = _requiredValidator(value, 'Vehicle Plate No');
     if (requiredError != null) return requiredError;

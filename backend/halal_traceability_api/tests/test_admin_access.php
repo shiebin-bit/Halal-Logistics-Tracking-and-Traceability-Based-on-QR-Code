@@ -1,5 +1,7 @@
 <?php
 
+// Standalone smoke test script for validating non-admin access to admin APIs.
+// Run from CLI after setting up DB and migrations.
 require __DIR__ . '/../vendor/autoload.php';
 $app = require_once __DIR__ . '/../bootstrap/app.php';
 $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);

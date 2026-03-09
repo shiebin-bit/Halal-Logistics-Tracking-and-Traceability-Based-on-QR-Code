@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../config.dart';
 
+/// Public consumer screen for batch lookup and authenticity verification.
 class ConsumerDashboard extends StatefulWidget {
   const ConsumerDashboard({super.key});
 
@@ -368,6 +369,7 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
 }
 
 // --- NEW PAGE: BATCH DETAILS (WITH TABS) ---
+/// Consumer-facing batch details with product and route timeline tabs.
 class ConsumerBatchDetailScreen extends StatelessWidget {
   final Map<String, dynamic> batchData;
 

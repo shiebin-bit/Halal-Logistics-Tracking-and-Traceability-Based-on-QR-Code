@@ -19,11 +19,13 @@ class Checkpoint extends Model
         'action_type', 'notes', 'signature_path'
     ];
 
+    /** Batch referenced by this checkpoint entry. */
     public function batch()
     {
         return $this->belongsTo(Batch::class);
     }
 
+    /** User who submitted this checkpoint event. */
     public function user()
     {
         return $this->belongsTo(User::class);

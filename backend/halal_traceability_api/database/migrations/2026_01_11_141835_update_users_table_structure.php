@@ -4,7 +4,9 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+// Moves role-specific registration fields out of the shared users table.
 return new class extends Migration {
+    /** Apply the migration. */
     public function up()
     {
         Schema::table('users', function (Blueprint $table) {
@@ -14,6 +16,7 @@ return new class extends Migration {
         });
     }
 
+    /** Roll back the migration. */
     public function down()
     {
         Schema::table('users', function (Blueprint $table) {

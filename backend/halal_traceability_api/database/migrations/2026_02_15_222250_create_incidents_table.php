@@ -4,7 +4,9 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+// Creates incident records for quality, compliance, and logistics exceptions.
 return new class extends Migration {
+    /** Apply the migration. */
     public function up()
     {
         Schema::create('incidents', function (Blueprint $table) {
@@ -19,6 +21,7 @@ return new class extends Migration {
         });
     }
 
+    /** Roll back the migration. */
     public function down()
     {
         Schema::dropIfExists('incidents');

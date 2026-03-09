@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * Stores retailer-specific business profile details linked to a user.
+ */
 class RetailerProfile extends Model
 {
     use HasFactory;
@@ -17,6 +20,7 @@ class RetailerProfile extends Model
         'store_contact_number'
     ];
 
+    /** Get the owning user account for this retailer profile. */
     public function user()
     {
         return $this->belongsTo(User::class);

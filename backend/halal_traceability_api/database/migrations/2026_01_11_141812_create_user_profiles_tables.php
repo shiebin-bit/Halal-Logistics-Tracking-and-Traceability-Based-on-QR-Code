@@ -4,7 +4,9 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+// Creates role-specific profile tables for processor, logistics, and retailer.
 return new class extends Migration {
+    /** Apply the migration. */
     public function up()
     {
         // 1. Processor Profile
@@ -42,6 +44,7 @@ return new class extends Migration {
         });
     }
 
+    /** Roll back the migration. */
     public function down()
     {
         Schema::dropIfExists('retailer_profiles');

@@ -9,6 +9,7 @@ import '../../config.dart';
 import '../../services/auth_session_service.dart';
 import 'widgets/dashboard_widgets.dart';
 
+/// Admin workspace for approvals, monitoring, and system-level oversight.
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
 
@@ -870,6 +871,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 }
 
+/// Read-only detail page for inspecting batch traceability as an admin.
 class AdminBatchDetailScreen extends StatefulWidget {
   final String batchId;
   const AdminBatchDetailScreen({super.key, required this.batchId});

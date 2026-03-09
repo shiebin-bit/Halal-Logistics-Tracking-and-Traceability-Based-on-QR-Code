@@ -13,6 +13,7 @@ import '../../config.dart';
 import '../../services/auth_session_service.dart';
 import 'widgets/dashboard_widgets.dart';
 
+/// Logistics workspace for route tracking, checkpoint capture, and incidents.
 class LogisticsDashboard extends StatefulWidget {
   const LogisticsDashboard({super.key});
 
@@ -1012,6 +1013,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
 }
 
 // --- PROFESSIONAL SCANNER (FIXED OVERLAY) ---
+/// Scanner screen used to capture a batch QR code during handover.
 class SimpleScannerPage extends StatefulWidget {
   const SimpleScannerPage({super.key});
 
@@ -1092,6 +1094,7 @@ class _SimpleScannerPageState extends State<SimpleScannerPage> {
 }
 
 // --- SCANNER PAINTER HELPER (FIXED) ---
+/// Draws the scanner bracket overlay around the camera scan area.
 class ScannerOverlayPainter extends CustomPainter {
   final Rect scanWindow;
   final double borderRadius;
@@ -1134,6 +1137,7 @@ class ScannerOverlayPainter extends CustomPainter {
 }
 
 // --- UPDATED PROFILE SCREEN (LOGISTICS SPECIFIC) ---
+/// Profile editing screen for logistics identity and vehicle information.
 class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
   final VoidCallback onProfileUpdate;

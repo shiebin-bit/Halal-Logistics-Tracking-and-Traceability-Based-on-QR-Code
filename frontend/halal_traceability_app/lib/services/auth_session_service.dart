@@ -6,6 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config.dart';
 
+/// Centralized helper for login session persistence and account security state.
+///
+/// Stores sensitive token data in secure storage while keeping compatibility
+/// with existing `SharedPreferences` keys used by legacy screens.
 class AuthSessionService {
   AuthSessionService._();
 
@@ -18,6 +22,7 @@ class AuthSessionService {
   static const String _failedAttemptsKey = 'login_failed_attempts';
   static const String _lockoutUntilKey = 'login_lockout_until_ms';
 
+  /// Saves current login context after successful authentication.
   static Future<void> saveLoginSession({
     required String token,
     required Map<String, dynamic> user,
@@ -36,6 +41,7 @@ class AuthSessionService {
     await _secureStorage.write(key: _secureTokenKey, value: token);
   }
 
+  /// Reads the token from secure storage only.
   static Future<String?> getSecureToken() async {
     final secureToken = await _secureStorage.read(key: _secureTokenKey);
     if (secureToken == null || secureToken.isEmpty) {
@@ -44,6 +50,7 @@ class AuthSessionService {
     return secureToken;
   }
 
+  /// Returns an auth token with migration support from legacy plain storage.
   static Future<String?> getToken() async {
     final secureToken = await getSecureToken();
     if (secureToken != null) {
@@ -64,6 +71,7 @@ class AuthSessionService {
     return null;
   }
 
+  /// Clears session data while optionally preserving remembered email.
   static Future<void> clearAuthSession({
     bool preserveRememberedEmail = true,
   }) async {
@@ -84,6 +92,7 @@ class AuthSessionService {
     }
   }
 
+  /// Validates the persisted token by requesting `/user` and refreshes cache.
   static Future<Map<String, dynamic>?> validateTokenAndFetchUser() async {
     final token = await getToken();
     if (token == null) {
@@ -121,6 +130,7 @@ class AuthSessionService {
     return null;
   }
 
+  /// Enables or disables biometric login preference.
   static Future<void> setBiometricEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_biometricEnabledKey, enabled);

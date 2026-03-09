@@ -4,7 +4,9 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+// Creates core batch records used for end-to-end halal traceability.
 return new class extends Migration {
+    /** Apply the migration. */
     public function up(): void
     {
         Schema::create('batches', function (Blueprint $table) {
@@ -35,6 +37,7 @@ return new class extends Migration {
         });
     }
 
+    /** Roll back the migration. */
     public function down(): void
     {
         Schema::dropIfExists('batches');

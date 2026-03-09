@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_session_service.dart';
 
+/// Branded splash screen that validates session and routes by user role.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -62,6 +63,7 @@ class _SplashScreenState extends State<SplashScreen>
     }
   }
 
+  /// Maps backend role values to dashboard routes.
   String _getRouteForRole(String role) {
     switch (role) {
       case 'processor':

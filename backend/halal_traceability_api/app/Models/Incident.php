@@ -18,6 +18,7 @@ class Incident extends Model
         'description', 'location', 'status',
     ];
 
+    /** User who reported this incident. */
     public function reporter()
     {
         return $this->belongsTo(User::class, 'user_id');

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
 
+/// Displays recent audit checkpoints from the backend reporting endpoint.
 class AuditLogScreen extends StatefulWidget {
   const AuditLogScreen({super.key});
 

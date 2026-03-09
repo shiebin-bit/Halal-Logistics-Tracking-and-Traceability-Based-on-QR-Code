@@ -15,6 +15,7 @@ import '../../config.dart';
 import '../../services/auth_session_service.dart';
 import 'widgets/dashboard_widgets.dart';
 
+/// Processor workspace for inventory management, batch creation, and reports.
 class ProcessorDashboard extends StatefulWidget {
   const ProcessorDashboard({super.key});
 
@@ -1164,6 +1165,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
 }
 
 // --- BATCH DETAIL SCREEN (UNCHANGED) ---
+/// Detailed processor view for a single batch timeline and metadata.
 class BatchDetailScreen extends StatefulWidget {
   final Map<String, dynamic> batchData;
   const BatchDetailScreen({super.key, required this.batchData});
@@ -1341,6 +1343,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
 }
 
 // --- PROFILE SCREEN (UNCHANGED) ---
+/// Profile editing screen for processor account and company details.
 class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
   final VoidCallback onProfileUpdate;

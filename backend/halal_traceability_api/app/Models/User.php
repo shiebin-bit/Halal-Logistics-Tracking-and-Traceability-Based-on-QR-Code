@@ -31,16 +31,19 @@ class User extends Authenticatable
         'is_approved' => 'boolean',
     ];
 
+    /** Processor profile relation for users with `processor` role. */
     public function processorProfile()
     {
         return $this->hasOne(ProcessorProfile::class);
     }
 
+    /** Logistics profile relation for users with `logistics` role. */
     public function logisticsProfile()
     {
         return $this->hasOne(LogisticsProfile::class);
     }
 
+    /** Retailer profile relation for users with `retailer` role. */
     public function retailerProfile()
     {
         return $this->hasOne(RetailerProfile::class);

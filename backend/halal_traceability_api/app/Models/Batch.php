@@ -21,21 +21,25 @@ class Batch extends Model
         'driver_id', 'truck_plate', 'destination_address', 'estimated_arrival'
     ];
 
+    /** User who originally created/processed this batch. */
     public function processor()
     {
         return $this->belongsTo(User::class, 'processor_id');
     }
 
+    /** User currently responsible for this batch. */
     public function currentHolder()
     {
         return $this->belongsTo(User::class, 'current_holder_id');
     }
 
+    /** Assigned logistics driver for the current shipment leg. */
     public function driver()
     {
         return $this->belongsTo(User::class, 'driver_id');
     }
 
+    /** Chronological traceability checkpoints for this batch. */
     public function checkpoints()
     {
         return $this->hasMany(Checkpoint::class);

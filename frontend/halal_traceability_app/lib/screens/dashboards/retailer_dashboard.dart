@@ -10,6 +10,7 @@ import '../../config.dart';
 import '../../services/auth_session_service.dart';
 import 'widgets/dashboard_widgets.dart';
 
+/// Retailer workspace for incoming shipments, scanning, and inventory control.
 class RetailerDashboard extends StatefulWidget {
   const RetailerDashboard({super.key});
 
@@ -940,6 +941,7 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
 }
 
 // --- SCANNER PAGE (UNCHANGED) ---
+/// Scanner page that returns decoded batch IDs to the retailer dashboard.
 class RetailerScannerPage extends StatefulWidget {
   const RetailerScannerPage({super.key});
 
@@ -1019,6 +1021,7 @@ class _RetailerScannerPageState extends State<RetailerScannerPage> {
   }
 }
 
+/// Paints the scanning-frame overlay for the retailer QR camera.
 class _ScannerOverlayPainter extends CustomPainter {
   final Rect scanWindow;
   final double borderRadius = 20.0;
@@ -1061,6 +1064,7 @@ class _ScannerOverlayPainter extends CustomPainter {
 }
 
 // --- PROFILE SCREEN (UNCHANGED) ---
+/// Profile editing screen for retailer store and contact details.
 class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
   final VoidCallback onProfileUpdate;
