@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../config.dart';
@@ -150,8 +149,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    return AuthSessionService.getToken();
   }
 
   Map<String, String> _headers(String? token) {
@@ -892,8 +890,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
 
   Future<void> _fetchBatchDetails() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await AuthSessionService.getToken();
       final response = await http.get(
         Uri.parse('$baseUrl/batches/${widget.batchId}'),
         headers: {

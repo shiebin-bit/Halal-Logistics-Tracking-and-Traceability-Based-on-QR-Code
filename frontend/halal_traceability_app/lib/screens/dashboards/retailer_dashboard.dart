@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -62,8 +61,7 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
   // --- ALL API CALLS (UNCHANGED) ---
 
   Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    return AuthSessionService.getToken();
   }
 
   Future<void> _fetchProfile() async {
@@ -1160,8 +1158,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _updateProfile() async {
     setState(() => _isSaving = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await AuthSessionService.getToken();
 
       var request =
           http.MultipartRequest('POST', Uri.parse('$baseUrl/user/update'));

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -83,8 +82,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
   // --- ALL API ACTIONS (UNCHANGED) ---
 
   Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    return AuthSessionService.getToken();
   }
 
   Future<void> _fetchProfile() async {
@@ -218,8 +216,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     setState(() => _isDownloadingPdf = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await _getToken();
 
       final response = await http.get(
         Uri.parse('$baseUrl/reports/manifest'),
@@ -1187,8 +1184,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
   Future<void> _updateStatusInBackend(String newStatus) async {
     setState(() => _isUpdating = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await AuthSessionService.getToken();
       final String batchId = widget.batchData['batch_id'];
 
       final response = await http.post(
@@ -1439,8 +1435,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _updateProfile() async {
     setState(() => _isSaving = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await AuthSessionService.getToken();
 
       var request =
           http.MultipartRequest('POST', Uri.parse('$baseUrl/user/update'));

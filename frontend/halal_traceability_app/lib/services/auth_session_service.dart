@@ -30,9 +30,9 @@ class AuthSessionService {
     final prefs = await SharedPreferences.getInstance();
 
     await prefs.setBool('isLoggedIn', true);
-    await prefs.setString('auth_token', token); // Legacy compatibility.
     await prefs.setString('userRole', (user['role'] ?? '').toString());
     await prefs.setString('userName', (user['name'] ?? '').toString());
+    await prefs.remove('auth_token');
 
     if (user['id'] != null) {
       await prefs.setString('userId', user['id'].toString());
@@ -54,10 +54,6 @@ class AuthSessionService {
   static Future<String?> getToken() async {
     final secureToken = await getSecureToken();
     if (secureToken != null) {
-      final prefs = await SharedPreferences.getInstance();
-      if (prefs.getString('auth_token') != secureToken) {
-        await prefs.setString('auth_token', secureToken);
-      }
       return secureToken;
     }
 
@@ -65,6 +61,7 @@ class AuthSessionService {
     final legacyToken = prefs.getString('auth_token');
     if (legacyToken != null && legacyToken.isNotEmpty) {
       await _secureStorage.write(key: _secureTokenKey, value: legacyToken);
+      await prefs.remove('auth_token');
       return legacyToken;
     }
 

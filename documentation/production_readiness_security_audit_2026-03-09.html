@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Production Readiness & Security Audit - 2026-03-09</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      line-height: 1.45;
+      color: #111;
+      margin: 34px;
+      font-size: 12pt;
+    }
+    h1, h2, h3 { margin-bottom: 6px; }
+    h1 { font-size: 22pt; }
+    h2 { font-size: 15pt; margin-top: 22px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+    h3 { font-size: 12.5pt; margin-top: 14px; }
+    ul, ol { margin-top: 4px; }
+    .meta { color: #333; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-weight: 700;
+      border: 1px solid #b91c1c;
+      color: #b91c1c;
+      background: #fef2f2;
+    }
+    .ok { color: #166534; font-weight: 700; }
+    .fail { color: #b91c1c; font-weight: 700; }
+    .partial { color: #92400e; font-weight: 700; }
+    code { background: #f5f5f5; padding: 1px 4px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>Halal Traceability System - Production Readiness & Security Audit</h1>
+  <p class="meta">
+    Assessment date: March 9, 2026<br>
+    Assessor: Codex (local CLI audit)<br>
+    Scope: <code>backend/halal_traceability_api</code> and <code>frontend/halal_traceability_app</code>
+  </p>
+
+  <h2>Executive Summary</h2>
+  <p>Release recommendation: <span class="badge">DO NOT PUBLISH YET</span>.</p>
+  <p>
+    The system boots and most business flows work, but critical authorization issues and security/release blockers remain.
+  </p>
+  <ul>
+    <li>Broken role-based access control on admin and logistics endpoints</li>
+    <li>Password reset flow failing in runtime</li>
+    <li>Test suites not passing</li>
+    <li>Production hardening not yet applied</li>
+    <li>Dependency vulnerabilities reported by Composer audit</li>
+  </ul>
+
+  <h2>Validation Performed</h2>
+  <h3>Backend</h3>
+  <ul>
+    <li><code>php -v</code>, <code>composer --version</code>, <code>php artisan about</code></li>
+    <li><code>php artisan route:list</code>, <code>php artisan route:list -v</code></li>
+    <li><code>php artisan migrate:status</code>, <code>php artisan test</code></li>
+    <li>API smoke tests via local <code>php artisan serve</code> and HTTP calls</li>
+    <li><code>composer audit --locked</code></li>
+  </ul>
+
+  <h3>Frontend</h3>
+  <ul>
+    <li><code>flutter --version</code>, <code>flutter doctor -v</code></li>
+    <li><code>flutter analyze</code>, <code>flutter test</code></li>
+    <li><code>flutter build apk --debug</code></li>
+  </ul>
+
+  <h2>Functional Results</h2>
+  <h3>Backend</h3>
+  <ul>
+    <li>App boot: <span class="ok">PASS</span></li>
+    <li>Routes resolve: <span class="ok">PASS</span></li>
+    <li>Migration status: <span class="partial">PARTIAL</span> (password reset migration pending)</li>
+    <li>PHPUnit: <span class="fail">FAIL</span> (feature test expects <code>GET /</code> 200 but app returns 405)</li>
+    <li>Core API flows (register/login/user/batch/public/logistics/retailer): <span class="ok">PASS</span></li>
+    <li><code>/api/forgot-password</code>: <span class="fail">FAIL</span> (500)</li>
+    <li><code>/api/reports/manifest</code>: <span class="partial">PARTIAL</span> (placeholder only)</li>
+  </ul>
+
+  <h3>Frontend</h3>
+  <ul>
+    <li><code>flutter analyze</code>: 17 info/lint issues</li>
+    <li><code>flutter test</code>: <span class="fail">FAIL</span> (default counter template test mismatch)</li>
+    <li><code>flutter build apk --debug</code>: <span class="ok">PASS</span></li>
+  </ul>
+
+  <h2>Security Findings (Prioritized)</h2>
+  <h3>Critical</h3>
+  <ol>
+    <li>
+      Admin endpoints accessible to non-admin users.
+      Verified with processor token receiving HTTP 200 from <code>/api/admin/stats</code>.
+    </li>
+    <li>
+      Logistics endpoints accessible to non-logistics users.
+      Verified with processor token successfully calling <code>/api/logistics/incident</code> and <code>/api/logistics/checkpoint</code>.
+    </li>
+  </ol>
+
+  <h3>High</h3>
+  <ol>
+    <li>Production hardening not enabled: <code>APP_ENV=local</code>, <code>APP_DEBUG=true</code>, <code>LOG_LEVEL=debug</code>.</li>
+    <li>Missing security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy.</li>
+    <li>No effective backend login throttling observed during repeated invalid login attempts.</li>
+  </ol>
+
+  <h3>Medium</h3>
+  <ol>
+    <li>Password reset flow broken due to missing <code>password_reset_tokens</code> table (runtime 500).</li>
+    <li>Approval workflow inconsistency: registration auto-approves users while login includes pending-approval logic.</li>
+    <li>Sanctum token expiration is unlimited (<code>expiration =&gt; null</code>).</li>
+    <li>Composer advisories detected (1 high + 3 medium): <code>phpunit/phpunit</code>, <code>league/commonmark</code>, <code>psy/psysh</code>, <code>symfony/process</code>.</li>
+    <li>Profile update field mismatch (<code>phone</code> vs <code>phone_number</code>).</li>
+  </ol>
+
+  <h3>Low</h3>
+  <ol>
+    <li>Frontend API base URL is hardcoded for emulator host and must be environment-driven for production.</li>
+  </ol>
+
+  <h2>Release Decision</h2>
+  <p><strong>NO-GO</strong> for production deployment until blockers are fixed.</p>
+  <p>Minimum blockers before publish:</p>
+  <ol>
+    <li>Enforce role-based authorization for admin/logistics/retailer endpoints.</li>
+    <li>Run pending password reset migration and validate forgot-password flow.</li>
+    <li>Apply production environment hardening and disable debug mode.</li>
+    <li>Add auth endpoint throttling/rate limits.</li>
+    <li>Patch dependency vulnerabilities and re-run audit.</li>
+    <li>Make backend and frontend tests pass in CI.</li>
+  </ol>
+
+  <h2>Conclusion</h2>
+  <p>
+    Functionality is close, but confirmed authorization bypasses and incomplete hardening make production release unsafe at this stage.
+  </p>
+</body>
+</html>

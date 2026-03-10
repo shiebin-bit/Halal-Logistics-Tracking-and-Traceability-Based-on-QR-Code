@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
+import '../services/auth_session_service.dart';
 
 /// Displays recent audit checkpoints from the backend reporting endpoint.
 class AuditLogScreen extends StatefulWidget {
@@ -25,8 +25,15 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
 
   Future<void> _fetchLogs() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await AuthSessionService.getToken();
+      if (token == null) {
+        setState(() {
+          _errorMessage = "Session expired";
+          _isLoading = false;
+          _useMockData();
+        });
+        return;
+      }
 
       final response = await http.get(
         Uri.parse('$apiBaseUrl/reports/audit-logs'),

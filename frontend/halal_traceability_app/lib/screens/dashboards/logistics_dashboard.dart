@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:signature/signature.dart';
 import 'package:image_picker/image_picker.dart';
@@ -62,10 +61,13 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
   }
 
   // --- ALL API CALLS (UNCHANGED) ---
+  Future<String?> _getToken() async {
+    return AuthSessionService.getToken();
+  }
+
   Future<void> _fetchUserProfile() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await _getToken();
 
       final response = await http.get(
         Uri.parse('$baseUrl/user'),
@@ -92,8 +94,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
   Future<void> _fetchAssignedRoutes() async {
     setState(() => _isLoadingRoutes = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await _getToken();
 
       final response = await http.get(
         Uri.parse('$baseUrl/logistics/routes'),
@@ -147,8 +148,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
     setState(() => _isSubmitting = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await _getToken();
 
       final Uint8List? signatureBytes = await _signatureController.toPngBytes();
       String signatureBase64 = base64Encode(signatureBytes!);
@@ -304,8 +304,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
       String batchId, String type, String desc) async {
     setState(() => _isSubmitting = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await _getToken();
 
       final response = await http.post(
         Uri.parse('$baseUrl/logistics/incident'),
@@ -1233,8 +1232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _updateProfile() async {
     setState(() => _isSaving = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await AuthSessionService.getToken();
 
       var request =
           http.MultipartRequest('POST', Uri.parse('$baseUrl/user/update'));

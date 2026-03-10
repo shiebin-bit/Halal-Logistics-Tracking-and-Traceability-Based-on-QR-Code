@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Models\Batch;
 use App\Models\Checkpoint;
-use Illuminate\Support\Facades\Auth;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 
 /**
  * Handles report generation: audit logs and manifest downloads.
@@ -34,11 +35,31 @@ class ReportController extends Controller
         return response()->json(['data' => $formattedLogs]);
     }
 
-    /**
-     * Download a manifest PDF (placeholder — requires dompdf library for full implementation).
-     */
-    public function downloadManifest()
+    /** Download a manifest PDF for the authenticated user's relevant batches. */
+    public function downloadManifest(Request $request)
     {
-        return response()->json(['message' => 'PDF Service Placeholder'], 200);
+        $user = $request->user();
+
+        $batches = Batch::query()
+            ->with(['processor:id,name', 'currentHolder:id,name'])
+            ->when(
+                $user->role !== 'admin',
+                fn ($query) => $query->where(function ($innerQuery) use ($user) {
+                    $innerQuery
+                        ->where('processor_id', $user->id)
+                        ->orWhere('current_holder_id', $user->id)
+                        ->orWhere('driver_id', $user->id);
+                })
+            )
+            ->orderByDesc('created_at')
+            ->get();
+
+        $pdf = Pdf::loadView('reports.manifest', [
+            'batches' => $batches,
+            'generatedAt' => now(),
+            'generatedBy' => $user->name,
+        ]);
+
+        return $pdf->download('halal-manifest-report.pdf');
     }
 }

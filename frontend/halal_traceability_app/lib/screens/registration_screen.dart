@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import '../config.dart';
+import '../services/auth_session_service.dart';
 
 /// Multi-role registration screen for processors, logistics, and retailers.
 class RegistrationScreen extends StatefulWidget {
@@ -266,12 +266,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
         if (response.statusCode == 201 || response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          String token = data['token']; // Ensure backend returns 'token'
+          final String token = data['token'].toString();
+          final user = ((data['user'] as Map?) ?? <String, dynamic>{'role': apiRole})
+              .cast<String, dynamic>();
 
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('isLoggedIn', true);
-          await prefs.setString('auth_token', token);
-          await prefs.setString('userRole', apiRole);
+          await AuthSessionService.saveLoginSession(token: token, user: user);
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
