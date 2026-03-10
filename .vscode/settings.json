@@ -1,4 +1,8 @@
 {
     "cmake.sourceDirectory": "E:/xampp/htdocs/FYP_project/frontend/halal_traceability_app/windows",
-    "editor.tabCompletion": "on"
+    "editor.tabCompletion": "on",
+    "java.import.exclusions": [
+        "**/frontend/halal_traceability_app/android/**",
+        "**/android/**"
+    ]
 }
