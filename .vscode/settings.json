@@ -4,5 +4,9 @@
     "java.import.exclusions": [
         "**/frontend/halal_traceability_app/android/**",
         "**/android/**"
-    ]
+    ],
+    "php.suggest.basic": false,
+    "php.validate.executablePath": "e:/xampp/php/php.exe",
+    "intelephense.environment.phpVersion": "8.2.0",
+    "dart.flutterSdkPath": "c:/flutter"
 }
