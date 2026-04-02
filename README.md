@@ -29,7 +29,6 @@ Main capabilities:
 - Laravel 12
 - Laravel Sanctum
 - MariaDB
-- DomPDF
 
 ### Frontend
 
@@ -147,8 +146,6 @@ Current backend result:
 
 ## Key Documentation
 
-- [Project Proposal PDF](documentation/STTZK3993%20Assignment%201%20-%20Project%20Proposal.pdf)
-- [Project Design PDF](documentation/STTZK3993%20Assignment%202%20-%20Project%20Design.pdf)
 - [Requirements Completion Report](documentation/requirements_completion_report_2026-04-02.md)
 - [System Fix Log and Readiness Review](documentation/system_fix_log_and_readiness_review_2026-03-30.md)
 - [Deployment Guide](documentation/vps_docker_nginx_github_actions_deployment_guide_2026-03-27.md)
