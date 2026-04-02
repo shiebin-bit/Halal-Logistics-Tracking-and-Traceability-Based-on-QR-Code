@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\User;
 use App\Models\Batch;
+use App\Models\Checkpoint;
 use App\Models\Incident;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
+use Illuminate\Http\Request;
 
 /**
  * Admin-only controller for managing users, viewing stats, and monitoring incidents.
@@ -19,7 +22,15 @@ class AdminController extends Controller
     {
         return response()->json([
             'total_batches' => Batch::count(),
-            'pending_users' => User::where('is_approved', 0)->count(),
+            'pending_users' => User::query()
+                ->where(function ($query) {
+                    $query->where('registration_status', 'pending')
+                        ->orWhere(function ($legacy) {
+                            $legacy->whereNull('registration_status')
+                                ->where('is_approved', 0);
+                        });
+                })
+                ->count(),
             'active_issues' => Incident::where('status', '!=', 'Resolved')->count()
         ]);
     }
@@ -27,11 +38,24 @@ class AdminController extends Controller
     /** List users, optionally filtered by approval status. */
     public function getUsers(Request $request)
     {
-        $query = User::query();
-        if ($request->status === 'pending') {
-            $query->where('is_approved', 0);
+        $query = User::with(['processorProfile', 'logisticsProfile', 'retailerProfile']);
+        $status = $request->query('status');
+
+        if ($status === 'pending') {
+            $query->where(function ($pending) {
+                $pending->where('registration_status', 'pending')
+                    ->orWhere(function ($legacy) {
+                        $legacy->whereNull('registration_status')
+                            ->where('is_approved', 0);
+                    });
+            });
+        } elseif (in_array($status, ['approved', 'rejected'], true)) {
+            $query->where('registration_status', $status);
         }
-        return response()->json(['data' => $query->get()]);
+
+        return response()->json([
+            'data' => $query->latest('created_at')->get(),
+        ]);
     }
 
     /** Approve a pending user registration. */
@@ -39,21 +63,53 @@ class AdminController extends Controller
     {
         $user = User::findOrFail($id);
         $user->is_approved = 1;
+        $user->approved_at = Carbon::now();
+        $user->registration_status = 'approved';
         $user->save();
         return response()->json(['message' => 'User Approved']);
     }
 
-    /** Reject and delete a pending user registration. */
+    /** Reject a pending user registration without deleting audit history. */
     public function rejectUser($id)
     {
         $user = User::findOrFail($id);
-        $user->delete();
-        return response()->json(['message' => 'User Rejected and Removed']);
+        $user->is_approved = 0;
+        $user->approved_at = null;
+        $user->registration_status = 'rejected';
+        $user->save();
+
+        return response()->json(['message' => 'User Rejected']);
     }
 
     /** List all incidents, newest first. */
     public function getIncidents()
     {
         return response()->json(['data' => Incident::orderBy('created_at', 'desc')->get()]);
+    }
+
+    public function revokeBatchCertificate($id, Request $request)
+    {
+        $batch = Batch::findOrFail($id);
+
+        DB::transaction(function () use ($batch, $request) {
+            $batch->forceFill([
+                'qr_revoked_at' => now(),
+                'status' => 'Invalid - Certificate Revoked',
+                'halal_status' => 'breached',
+            ])->save();
+
+            Checkpoint::create([
+                'batch_id' => $batch->id,
+                'user_id' => $request->user()->id,
+                'location_name' => $batch->current_location,
+                'temperature' => 0,
+                'action_type' => 'transit_update',
+                'notes' => 'Certificate revoked by administrator.',
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Batch certificate revoked successfully.',
+        ]);
     }
 }

@@ -251,6 +251,19 @@ class _LoginScreenState extends State<LoginScreen> {
         final message = (errorData['message'] ?? 'Login failed').toString();
         await _recordFailedAttempt();
 
+        if (!mounted) return;
+
+        if (message == 'Please verify your email before signing in.') {
+          Navigator.pushNamed(
+            context,
+            '/verify-email',
+            arguments: {
+              'email': _emailController.text.trim(),
+            },
+          );
+          return;
+        }
+
         if (_isLockedOut) {
           _showError(
             'Account temporarily locked for $_lockoutRemainingLabel.',

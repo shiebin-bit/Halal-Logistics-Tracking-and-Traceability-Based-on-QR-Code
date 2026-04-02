@@ -18,7 +18,34 @@ class ReportController extends Controller
      */
     public function getAuditLogs(Request $request)
     {
+        $user = $request->user();
+
         $logs = Checkpoint::with('batch')
+            ->when(
+                $user->role !== 'admin',
+                function ($query) use ($user) {
+                    $query->whereHas('batch', function ($batchQuery) use ($user) {
+                        if ($user->role === 'processor') {
+                            $batchQuery->where('processor_id', $user->id);
+                            return;
+                        }
+
+                        if ($user->role === 'logistics') {
+                            $batchQuery
+                                ->where('driver_id', $user->id)
+                                ->orWhere('current_holder_id', $user->id);
+                            return;
+                        }
+
+                        if ($user->role === 'retailer') {
+                            $batchQuery->where('current_holder_id', $user->id);
+                            return;
+                        }
+
+                        $batchQuery->whereRaw('1 = 0');
+                    });
+                }
+            )
             ->orderBy('created_at', 'desc')
             ->limit(50)
             ->get();

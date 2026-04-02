@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/registration_screen.dart';
+import 'screens/email_verification_screen.dart';
 
 // 2. Dashboards (Note the /dashboards/ path)
 import 'screens/dashboards/processor_dashboard.dart';
@@ -116,6 +117,7 @@ class HalalLogisticsApp extends StatelessWidget {
         '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegistrationScreen(),
+        '/verify-email': (context) => const EmailVerificationScreen(),
 
         // Dashboard Routes
         '/dashboard/processor': (context) => const ProcessorDashboard(),

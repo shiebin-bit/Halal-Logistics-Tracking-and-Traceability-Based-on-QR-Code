@@ -17,11 +17,14 @@ use App\Http\Controllers\Api\RetailerController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/verify-email-code', [AuthController::class, 'verifyEmailCode']);
+Route::post('/resend-email-code', [AuthController::class, 'resendEmailCode']);
 Route::get('/public/batches', [BatchController::class, 'publicIndex']);
+Route::get('/public/batches/{batchId}', [BatchController::class, 'publicShow']);
 
 
 // Protected Routes (Requires Sanctum Token)
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'token.idle'])->group(function () {
 
     // Authentication
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -32,29 +35,38 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Batch Management
     Route::get('/batches', [BatchController::class, 'index']);
-    Route::post('/batches', [BatchController::class, 'store']);
     Route::get('/batches/{id}', [BatchController::class, 'show']);
-    Route::post('/batches/update-status', [BatchController::class, 'updateStatus']);
 
     // Reports
     Route::get('/reports/manifest', [ReportController::class, 'downloadManifest']);
     Route::get('/reports/audit-logs', [ReportController::class, 'getAuditLogs']);
 
-    // Logistics
-    Route::get('/logistics/routes', [LogisticsController::class, 'getAssignedRoutes']);
-    Route::post('/logistics/checkpoint', [LogisticsController::class, 'submitCheckpoint']);
-    Route::post('/logistics/incident', [LogisticsController::class, 'reportIncident']);
+    Route::middleware('role:processor')->group(function () {
+        Route::post('/batches', [BatchController::class, 'store']);
+        Route::post('/batches/update-status', [BatchController::class, 'updateStatus']);
+        Route::post('/batches/{id}/generate-qr', [BatchController::class, 'generateQr']);
+    });
 
-    // Admin (role-checked in AdminController constructor)
-    Route::get('/admin/stats', [AdminController::class, 'getStats']);
-    Route::get('/admin/users', [AdminController::class, 'getUsers']);
-    Route::post('/admin/approve/{id}', [AdminController::class, 'approveUser']);
-    Route::post('/admin/reject/{id}', [AdminController::class, 'rejectUser']);
-    Route::get('/admin/incidents', [AdminController::class, 'getIncidents']);
+    Route::middleware('role:logistics')->group(function () {
+        Route::get('/logistics/routes', [LogisticsController::class, 'getAssignedRoutes']);
+        Route::post('/logistics/checkpoint', [LogisticsController::class, 'submitCheckpoint']);
+        Route::post('/logistics/incident', [LogisticsController::class, 'reportIncident']);
+    });
 
-    // Retailer
-    Route::get('/retailer/incoming', [RetailerController::class, 'incoming']);
-    Route::get('/retailer/inventory', [RetailerController::class, 'inventory']);
-    Route::post('/retailer/accept', [RetailerController::class, 'accept']);
-    Route::post('/retailer/reject', [RetailerController::class, 'reject']);
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/stats', [AdminController::class, 'getStats']);
+        Route::get('/admin/users', [AdminController::class, 'getUsers']);
+        Route::post('/admin/approve/{id}', [AdminController::class, 'approveUser']);
+        Route::post('/admin/reject/{id}', [AdminController::class, 'rejectUser']);
+        Route::get('/admin/incidents', [AdminController::class, 'getIncidents']);
+        Route::post('/admin/batches/{id}/revoke-certificate', [AdminController::class, 'revokeBatchCertificate']);
+        Route::post('/admin/batches/{id}/generate-qr', [BatchController::class, 'generateQr']);
+    });
+
+    Route::middleware('role:retailer')->group(function () {
+        Route::get('/retailer/incoming', [RetailerController::class, 'incoming']);
+        Route::get('/retailer/inventory', [RetailerController::class, 'inventory']);
+        Route::post('/retailer/accept', [RetailerController::class, 'accept']);
+        Route::post('/retailer/reject', [RetailerController::class, 'reject']);
+    });
 });

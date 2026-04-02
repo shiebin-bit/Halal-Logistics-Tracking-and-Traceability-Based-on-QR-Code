@@ -59,6 +59,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _businessRegController = TextEditingController(); // SSM
   final _outletAddressController = TextEditingController();
 
+  bool get _requiresSupportingDocument =>
+      _selectedType == 'Processing Partner' ||
+      _selectedType == 'Logistics Partner';
+
   /// Normalizes phone inputs before validation/submission.
   String _normalizePhone(String input) {
     return input.replaceAll(RegExp(r'[\s-]'), '');
@@ -89,7 +93,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final requiredError = _requiredValidator(value, 'Email Address');
     if (requiredError != null) return requiredError;
     final trimmed = value!.trim();
-    if (!_emailRegex.hasMatch(trimmed)) return 'Enter a valid email address';
+    if (!_emailRegex.hasMatch(trimmed)) {
+      return 'Enter a valid email address';
+    }
     return null;
   }
 
@@ -109,10 +115,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final requiredError = _requiredValidator(value, 'Password');
     if (requiredError != null) return requiredError;
     final password = value!;
-    if (password.length < 8) return 'Must be at least 8 characters';
-    if (!RegExp(r'[A-Z]').hasMatch(password)) return 'Add at least 1 uppercase letter';
-    if (!RegExp(r'[a-z]').hasMatch(password)) return 'Add at least 1 lowercase letter';
-    if (!RegExp(r'[0-9]').hasMatch(password)) return 'Add at least 1 number';
+    if (password.length < 8) {
+      return 'Must be at least 8 characters';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(password)) {
+      return 'Add at least 1 uppercase letter';
+    }
+    if (!RegExp(r'[a-z]').hasMatch(password)) {
+      return 'Add at least 1 lowercase letter';
+    }
+    if (!RegExp(r'[0-9]').hasMatch(password)) {
+      return 'Add at least 1 number';
+    }
     return null;
   }
 
@@ -177,6 +191,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           _showError("File is too large. Max size is 5MB.");
           return;
         }
+        if (!mounted) return;
         setState(() => _pickedFile = file);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Selected: ${file.name}")),
@@ -190,7 +205,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   // --- LOGIC: SUBMIT REGISTRATION ---
   Future<void> _submitRegistration() async {
     if (_formKey.currentState!.validate()) {
-      if (_pickedFile == null) {
+      if (_requiresSupportingDocument && _pickedFile == null) {
         _showError('Please upload your supporting document (License/Cert).');
         return;
       }
@@ -203,11 +218,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
       // Map Role to API Value
       String apiRole = 'consumer';
-      if (_selectedType == 'Processing Partner')
+      if (_selectedType == 'Processing Partner') {
         apiRole = 'processor';
-      else if (_selectedType == 'Logistics Partner')
+      } else if (_selectedType == 'Logistics Partner') {
         apiRole = 'logistics';
-      else if (_selectedType == 'Retailer') apiRole = 'retailer';
+      } else if (_selectedType == 'Retailer') {
+        apiRole = 'retailer';
+      }
 
       final uri = Uri.parse('$apiBaseUrl/register');
 
@@ -246,15 +263,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
         // --- 3. File Upload ---
         if (_pickedFile != null && _pickedFile!.path != null) {
-          // Note: Backend might look for specific names like 'gdl_license_path'
-          // Ideally, update backend to accept a generic 'document' or handle mapping
-          // For now, let's send it as 'profile_image' or specific field if strictly required
-          // Based on your migration: 'cert_document_path', 'gdl_license_path'
-          // Let's use a generic name 'document' and let Backend handle it, OR match logic
-          // **Hack for now**: Send as 'profile_image' to pass validation if any,
-          // but strictly you should update backend to read 'document' and save to correct column.
           request.files.add(await http.MultipartFile.fromPath(
-            'profile_image', // Keeping it simple for the 'User' table first
+            'document',
             _pickedFile!.path!,
           ));
         }
@@ -266,31 +276,67 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
         if (response.statusCode == 201 || response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          final String token = data['token'].toString();
-          final user = ((data['user'] as Map?) ?? <String, dynamic>{'role': apiRole})
-              .cast<String, dynamic>();
+          final message =
+              (data['message'] ?? 'Registration submitted successfully.')
+                  .toString();
+          final requiresEmailVerification =
+              data['email_verification_required'] == true;
 
-          await AuthSessionService.saveLoginSession(token: token, user: user);
+          if (requiresEmailVerification) {
+            if (!mounted) return;
 
-          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Registration Success! Redirecting...'),
+              SnackBar(
+                content: Text(message),
                 backgroundColor: Colors.green,
               ),
             );
-            await Future.delayed(const Duration(seconds: 1));
 
-            // Redirect
-            String route = '/login';
-            if (apiRole == 'processor')
-              route = '/dashboard/processor';
-            else if (apiRole == 'logistics')
-              route = '/dashboard/logistics';
-            else if (apiRole == 'retailer') route = '/dashboard/retailer';
+            await Future.delayed(const Duration(milliseconds: 700));
+            if (!mounted) return;
 
-            Navigator.pushNamedAndRemoveUntil(context, route, (r) => false);
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/verify-email',
+              (route) => false,
+              arguments: {
+                'email': _emailController.text.trim(),
+                'debug_code': data['verification_code_debug'],
+              },
+            );
+            return;
           }
+
+          final token = (data['token'] ?? '').toString();
+          final user =
+              ((data['user'] as Map?) ?? <String, dynamic>{'role': apiRole})
+                  .cast<String, dynamic>();
+
+          if (token.isNotEmpty) {
+            await AuthSessionService.saveLoginSession(token: token, user: user);
+          }
+
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message),
+              backgroundColor: Colors.green,
+            ),
+          );
+          await Future.delayed(const Duration(seconds: 1));
+          if (!mounted) return;
+
+          String route = '/login';
+          if (apiRole == 'processor') {
+            route = '/dashboard/processor';
+          } else if (apiRole == 'logistics') {
+            route = '/dashboard/logistics';
+          } else if (apiRole == 'retailer') {
+            route = '/dashboard/retailer';
+          }
+
+          Navigator.pushNamedAndRemoveUntil(context, route, (r) => false);
         } else {
           final errorData = jsonDecode(response.body);
           // Handle Laravel Validation Errors (which return objects)
@@ -376,8 +422,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         padding: const EdgeInsets.all(24.0),
                         child: Form(
                           key: _formKey,
-                          autovalidateMode:
-                              AutovalidateMode.onUserInteraction,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -385,7 +430,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               DropdownButtonFormField<String>(
                                 decoration: _inputDecoration(
                                     "Select Stakeholder Type", Icons.domain),
-                                value: _selectedType,
+                                initialValue: _selectedType,
                                 items: _stakeholderTypes.map((type) {
                                   return DropdownMenuItem(
                                       value: type, child: Text(type));
@@ -419,8 +464,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                     controller: _factoryAddressController,
                                     label: "Factory Address",
                                     icon: Icons.location_on,
-                                    validator: (val) =>
-                                        _addressValidator(val, "Factory Address")),
+                                    validator: (val) => _addressValidator(
+                                        val, "Factory Address")),
                               ] else if (_selectedType ==
                                   'Logistics Partner') ...[
                                 _buildHeader("Vehicle & Driver Details"),
@@ -441,8 +486,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                     controller: _vehicleTypeController,
                                     label: "Vehicle Type",
                                     icon: Icons.category,
-                                    validator: (val) =>
-                                        _requiredValidator(val, "Vehicle Type")),
+                                    validator: (val) => _requiredValidator(
+                                        val, "Vehicle Type")),
                               ] else if (_selectedType == 'Retailer') ...[
                                 _buildHeader("Store Details"),
                                 _buildTextField(
@@ -463,8 +508,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                     controller: _outletAddressController,
                                     label: "Outlet Address",
                                     icon: Icons.location_on,
-                                    validator: (val) =>
-                                        _addressValidator(val, "Outlet Address")),
+                                    validator: (val) => _addressValidator(
+                                        val, "Outlet Address")),
                               ],
 
                               const SizedBox(height: 15),
@@ -511,52 +556,73 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               ),
 
                               const SizedBox(height: 20),
-                              _buildHeader("Verification Document"),
-                              GestureDetector(
-                                onTap: _pickFile,
-                                child: Container(
-                                  width: double.infinity,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 20),
-                                  decoration: BoxDecoration(
-                                    color: _pickedFile != null
-                                        ? Colors.green[50]
-                                        : Colors.grey[100],
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
+                              if (_requiresSupportingDocument) ...[
+                                _buildHeader("Verification Document"),
+                                GestureDetector(
+                                  onTap: _pickFile,
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 20),
+                                    decoration: BoxDecoration(
                                       color: _pickedFile != null
-                                          ? Colors.green
-                                          : Colors.grey[300]!,
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Icon(
-                                        _pickedFile != null
-                                            ? Icons.check_circle
-                                            : Icons.cloud_upload,
+                                          ? Colors.green[50]
+                                          : Colors.grey[100],
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
                                         color: _pickedFile != null
                                             ? Colors.green
-                                            : Colors.grey,
-                                        size: 30,
+                                            : Colors.grey[300]!,
+                                        width: 1.5,
                                       ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        _pickedFile != null
-                                            ? "Selected: ${_pickedFile!.name}"
-                                            : "Upload Cert/License (PDF/JPG)",
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          _pickedFile != null
+                                              ? Icons.check_circle
+                                              : Icons.cloud_upload,
                                           color: _pickedFile != null
-                                              ? Colors.green[800]
-                                              : Colors.grey[700],
+                                              ? Colors.green
+                                              : Colors.grey,
+                                          size: 30,
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          _pickedFile != null
+                                              ? "Selected: ${_pickedFile!.name}"
+                                              : "Upload Cert/License (PDF/JPG)",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: _pickedFile != null
+                                                ? Colors.green[800]
+                                                : Colors.grey[700],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
+                              ] else ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueGrey[50],
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.blueGrey[100]!,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    "Retailer onboarding uses your business registration details and outlet address for admin review.",
+                                    style: TextStyle(
+                                      color: Colors.blueGrey[700],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
 
                               const SizedBox(height: 20),
                               Row(

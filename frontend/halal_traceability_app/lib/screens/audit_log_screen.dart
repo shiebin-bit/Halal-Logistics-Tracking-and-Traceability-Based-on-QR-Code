@@ -29,8 +29,8 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
       if (token == null) {
         setState(() {
           _errorMessage = "Session expired";
+          _logs = [];
           _isLoading = false;
-          _useMockData();
         });
         return;
       }
@@ -59,38 +59,17 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
       } else {
         setState(() {
           _errorMessage = "Server Error: ${response.statusCode}";
+          _logs = [];
           _isLoading = false;
-          _useMockData(); // Fallback for testing
         });
       }
     } catch (e) {
       setState(() {
         _errorMessage = "Connection Failed";
+        _logs = [];
         _isLoading = false;
-        _useMockData(); // Fallback for testing
       });
     }
-  }
-
-  /// Fallback mock data for when the API is unreachable.
-  void _useMockData() {
-    _logs = [
-      {
-        "batch_id": "B-2025-001",
-        "action": "Batch Created",
-        "timestamp": "2026-01-10 08:30 AM"
-      },
-      {
-        "batch_id": "B-2025-001",
-        "action": "Handover to Logistics",
-        "timestamp": "2026-01-10 10:15 AM"
-      },
-      {
-        "batch_id": "B-2025-002",
-        "action": "Temperature Check (Pass)",
-        "timestamp": "2026-01-11 02:45 PM"
-      },
-    ];
   }
 
   @override

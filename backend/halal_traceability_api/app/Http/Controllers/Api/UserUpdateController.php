@@ -21,7 +21,7 @@ class UserUpdateController extends Controller
         $user = Auth::user();
 
         // Update base user info
-        $user->update($request->only(['name', 'phone']));
+        $user->update($request->only(['name', 'phone_number']));
 
         // Handle profile image upload (delete old image if exists)
         if ($request->hasFile('profile_image')) {

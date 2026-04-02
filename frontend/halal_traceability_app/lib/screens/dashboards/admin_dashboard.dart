@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../config.dart';
 import '../../services/auth_session_service.dart';
@@ -160,6 +161,318 @@ class _AdminDashboardState extends State<AdminDashboard> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  Map<String, dynamic>? _roleProfileFor(Map<String, dynamic> user) {
+    final role = (user['role'] ?? '').toString();
+    if (role == 'processor') {
+      return (user['processor_profile'] as Map?)?.cast<String, dynamic>();
+    }
+    if (role == 'logistics') {
+      return (user['logistics_profile'] as Map?)?.cast<String, dynamic>();
+    }
+    if (role == 'retailer') {
+      return (user['retailer_profile'] as Map?)?.cast<String, dynamic>();
+    }
+    return null;
+  }
+
+  String? _documentUrlFor(Map<String, dynamic> user) {
+    final role = (user['role'] ?? '').toString();
+    final profile = _roleProfileFor(user);
+    if (profile == null) return null;
+
+    final path = role == 'processor'
+        ? profile['cert_document_path']
+        : role == 'logistics'
+            ? profile['gdl_license_path']
+            : null;
+
+    if (path == null || path.toString().isEmpty) return null;
+    return '$storageUrl${path.toString()}';
+  }
+
+  Future<void> _openVerificationDocument(Map<String, dynamic> user) async {
+    final url = _documentUrlFor(user);
+    if (url == null) {
+      _showMessage('No verification document uploaded.');
+      return;
+    }
+
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      _showMessage('Unable to open verification document.');
+    }
+  }
+
+  List<Widget> _buildApprovalDetails(Map<String, dynamic> user) {
+    final role = (user['role'] ?? '').toString();
+    final profile = _roleProfileFor(user);
+    final widgets = <Widget>[];
+
+    if (profile == null) {
+      return widgets;
+    }
+
+    if (role == 'processor') {
+      widgets.addAll([
+        _buildApprovalInfoRow(
+            'Company Reg No', profile['company_reg_no']?.toString() ?? 'N/A'),
+        _buildApprovalInfoRow(
+            'Halal Cert No', profile['halal_cert_no']?.toString() ?? 'N/A'),
+        _buildApprovalInfoRow(
+            'Factory Address', profile['factory_address']?.toString() ?? 'N/A'),
+      ]);
+    } else if (role == 'logistics') {
+      widgets.addAll([
+        _buildApprovalInfoRow(
+            'Vehicle Plate', profile['vehicle_plate_no']?.toString() ?? 'N/A'),
+        _buildApprovalInfoRow('Driver License',
+            profile['driver_license_no']?.toString() ?? 'N/A'),
+        _buildApprovalInfoRow(
+            'Vehicle Type', profile['vehicle_type']?.toString() ?? 'N/A'),
+      ]);
+    } else if (role == 'retailer') {
+      widgets.addAll([
+        _buildApprovalInfoRow(
+            'Store Name', profile['store_name']?.toString() ?? 'N/A'),
+        _buildApprovalInfoRow(
+            'Business Reg No', profile['business_reg_no']?.toString() ?? 'N/A'),
+        _buildApprovalInfoRow(
+            'Outlet Address', profile['outlet_address']?.toString() ?? 'N/A'),
+      ]);
+    }
+
+    return widgets;
+  }
+
+  Widget _buildApprovalInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Color(0xFF2C3E50),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _submittedAtLabel(Map<String, dynamic> user) {
+    final raw = user['created_at']?.toString();
+    if (raw == null || raw.isEmpty) {
+      return 'Unknown';
+    }
+
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) {
+      return raw;
+    }
+
+    final local = parsed.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '${local.year}-$month-$day $hour:$minute';
+  }
+
+  bool _hasVerificationDocument(Map<String, dynamic> user) {
+    return _documentUrlFor(user) != null;
+  }
+
+  Widget _buildApprovalStatusChip({
+    required String label,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showApprovalReviewDialog(Map<String, dynamic> user) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final hasDocument = _hasVerificationDocument(user);
+        return Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user['name'] ?? 'Unknown Name',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF2C3E50),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              (user['email'] ?? 'N/A').toString(),
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildApprovalStatusChip(
+                        label: (user['role'] ?? 'unknown')
+                            .toString()
+                            .toUpperCase(),
+                        color: const Color(0xFF6C63FF),
+                        icon: Icons.badge_outlined,
+                      ),
+                      _buildApprovalStatusChip(
+                        label: hasDocument ? 'DOCUMENT READY' : 'NO DOCUMENT',
+                        color: hasDocument
+                            ? const Color(0xFF2E7D32)
+                            : const Color(0xFFEF6C00),
+                        icon: hasDocument
+                            ? Icons.verified_outlined
+                            : Icons.warning_amber_rounded,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _buildApprovalInfoRow(
+                      'Phone', user['phone_number']?.toString() ?? 'N/A'),
+                  _buildApprovalInfoRow(
+                      'Submitted At', _submittedAtLabel(user)),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Application Details',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: Color(0xFF2C3E50),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ..._buildApprovalDetails(user),
+                  if (hasDocument) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _openVerificationDocument(user),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF1565C0),
+                          side: const BorderSide(color: Color(0xFF1565C0)),
+                        ),
+                        icon: const Icon(Icons.description_outlined, size: 18),
+                        label: const Text('OPEN VERIFICATION DOCUMENT'),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            _rejectUser(user['id']);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                          ),
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                          label: const Text('REJECT'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            _approveUser(user['id']);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4CAF50),
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.check_rounded, size: 18),
+                          label: const Text('APPROVE'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _logout() async {
     await AuthSessionService.clearAuthSession();
     if (mounted) {
@@ -310,8 +623,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 return StaggeredListItem(
                   index: 4 + i,
                   child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => AdminBatchDetailScreen(
@@ -319,6 +632,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           ),
                         ),
                       );
+                      if (mounted) {
+                        _refreshAllData();
+                      }
                     },
                     child: GlassCard(
                       child: Row(
@@ -440,17 +756,52 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 const SizedBox(height: 4),
                 Text("Phone: ${user['phone_number'] ?? 'N/A'}",
                     style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                const SizedBox(height: 4),
+                Text("Submitted: ${_submittedAtLabel(user)}",
+                    style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                const SizedBox(height: 12),
+                ..._buildApprovalDetails(user),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildApprovalStatusChip(
+                      label:
+                          (user['registration_status'] ?? 'pending').toString().toUpperCase(),
+                      color: (user['registration_status'] ?? 'pending') == 'rejected'
+                          ? const Color(0xFFC62828)
+                          : (user['registration_status'] ?? 'pending') == 'approved'
+                              ? const Color(0xFF2E7D32)
+                              : const Color(0xFFEF6C00),
+                      icon: (user['registration_status'] ?? 'pending') == 'approved'
+                          ? Icons.verified_rounded
+                          : Icons.pending_actions_rounded,
+                    ),
+                    _buildApprovalStatusChip(
+                      label: _hasVerificationDocument(user)
+                          ? 'DOCUMENT READY'
+                          : 'NO DOCUMENT',
+                      color: _hasVerificationDocument(user)
+                          ? const Color(0xFF2E7D32)
+                          : const Color(0xFFEF6C00),
+                      icon: _hasVerificationDocument(user)
+                          ? Icons.verified_outlined
+                          : Icons.warning_amber_rounded,
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 18),
                 Row(children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => _rejectUser(user['id']),
+                      onPressed: () => _showApprovalReviewDialog(user),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
+                        foregroundColor: const Color(0xFF1565C0),
+                        side: const BorderSide(color: Color(0xFF1565C0)),
                       ),
-                      icon: const Icon(Icons.close_rounded, size: 18),
-                      label: const Text("REJECT"),
+                      icon: const Icon(Icons.visibility_outlined, size: 18),
+                      label: const Text("REVIEW"),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -528,8 +879,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     return StaggeredListItem(
                       index: index,
                       child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
+                        onTap: () async {
+                          await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => AdminBatchDetailScreen(
@@ -537,6 +888,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               ),
                             ),
                           );
+                          if (mounted) {
+                            _refreshAllData();
+                          }
                         },
                         child: GlassCard(
                           child: Row(
@@ -880,6 +1234,7 @@ class AdminBatchDetailScreen extends StatefulWidget {
 
 class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
   bool _isLoading = true;
+  bool _isRevoking = false;
   Map<String, dynamic>? _batchData;
 
   @override
@@ -911,6 +1266,78 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
       debugPrint("Error fetching detail: $e");
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _revokeCertificate() async {
+    if (_batchData == null || _isRevoking) return;
+    if ((_batchData!['qr_revoked_at'] ?? '').toString().isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This certificate has already been revoked.')),
+      );
+      return;
+    }
+
+    setState(() => _isRevoking = true);
+    try {
+      final token = await AuthSessionService.getToken();
+      final response = await http.post(
+        Uri.parse('$baseUrl/admin/batches/${widget.batchId}/revoke-certificate'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _batchData = {
+            ...?_batchData,
+            'qr_revoked_at': DateTime.now().toIso8601String(),
+            'status': 'Invalid - Certificate Revoked',
+            'halal_status': 'breached',
+          };
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Certificate revoked successfully.')),
+        );
+        await _fetchBatchDetails();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to revoke certificate.')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connection error while revoking certificate.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isRevoking = false);
+    }
+  }
+
+  bool get _isCertificateRevoked =>
+      (_batchData?['qr_revoked_at'] ?? '').toString().isNotEmpty;
+
+  String _certificateStatusLabel() {
+    if (_batchData == null) return 'Unknown';
+    if (_isCertificateRevoked) return 'Revoked';
+
+    final raw = (_batchData!['certificate_valid_until'] ?? '').toString();
+    final expiresAt = DateTime.tryParse(raw);
+    if (expiresAt == null) return 'Missing expiry';
+    if (expiresAt.isBefore(DateTime.now())) return 'Expired';
+    return 'Active';
+  }
+
+  String _qrStatusLabel() {
+    if (_batchData == null) return 'Unavailable';
+    if (_isCertificateRevoked) return 'Revoked';
+    return (_batchData!['qr_generated_at'] ?? '').toString().isNotEmpty
+        ? 'Signed'
+        : 'Not generated';
   }
 
   @override
@@ -1014,8 +1441,10 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                                     color: Color(0xFF2C3E50))),
                             const SizedBox(height: 20),
                             QrImageView(
-                              data: _batchData!['qr_code_hash'] ??
-                                  _batchData!['batch_id'],
+                              data: (_batchData!['qr_code_payload'] ??
+                                      _batchData!['qr_code_hash'] ??
+                                      _batchData!['batch_id'])
+                                  .toString(),
                               version: QrVersions.auto,
                               size: 200.0,
                             ),
@@ -1069,6 +1498,34 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
               "Held by: ${_batchData!['current_holder']?['name'] ?? 'Unknown'}",
               style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
+          const SizedBox(height: 16),
+          if ((_batchData!['certificate_no'] ?? '').toString().isNotEmpty)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed:
+                    _isRevoking || _isCertificateRevoked ? null : _revokeCertificate,
+                icon: _isRevoking
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.block_rounded),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFC62828),
+                  foregroundColor: Colors.white,
+                ),
+                label: Text(_isRevoking
+                    ? 'Revoking...'
+                    : _isCertificateRevoked
+                        ? 'CERTIFICATE REVOKED'
+                        : 'REVOKE CERTIFICATE'),
+              ),
+            ),
         ],
       ),
     );
@@ -1084,6 +1541,22 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
           const Divider(height: 24),
           _buildDetailRow("Slaughter Date", _batchData!['slaughter_date']),
           const Divider(height: 24),
+          _buildDetailRow("Certificate No",
+              (_batchData!['certificate_no'] ?? 'N/A').toString()),
+          const Divider(height: 24),
+          _buildDetailRow("Authority",
+              (_batchData!['certificate_authority'] ?? 'N/A').toString()),
+          const Divider(height: 24),
+          _buildDetailRow("Certificate Valid Until",
+              (_batchData!['certificate_valid_until'] ?? 'N/A').toString()),
+          const Divider(height: 24),
+          _buildDetailRow("Certificate Status", _certificateStatusLabel()),
+          const Divider(height: 24),
+          _buildDetailRow("QR Status", _qrStatusLabel()),
+          const Divider(height: 24),
+          _buildDetailRow(
+              "Halal Status", (_batchData!['halal_status'] ?? 'unknown').toString()),
+          const Divider(height: 24),
           _buildDetailRow("Origin Farm", _batchData!['origin_farm']),
           const Divider(height: 24),
           _buildDetailRow(
@@ -1095,12 +1568,24 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
 
   Widget _buildDetailRow(String label, String value) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-        Text(value,
+        Expanded(
+          flex: 3,
+          child: Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          flex: 5,
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-                fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
+                fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
+          ),
+        ),
       ],
     );
   }

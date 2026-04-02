@@ -10,6 +10,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../config.dart';
 import '../../services/auth_session_service.dart';
+import '../../services/location_service.dart';
+import '../../services/profile_image_service.dart';
+import '../../services/qr_payload_service.dart';
 import 'widgets/dashboard_widgets.dart';
 
 /// Logistics workspace for route tracking, checkpoint capture, and incidents.
@@ -36,9 +39,12 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
   );
 
   String? _scannedBatchId;
+  AppLocation? _currentLocation;
   bool _isSubmitting = false;
+  bool _isFetchingLocation = false;
   List<dynamic> _assignedShipments = [];
   bool _isLoadingRoutes = true;
+  int _profileImageVersion = DateTime.now().millisecondsSinceEpoch;
 
   // --- GLOBAL USER DATA ---
   Map<String, dynamic> _userData = {
@@ -79,11 +85,20 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        final nextUserData = (data['user'] as Map).cast<String, dynamic>();
+        if (nextUserData['logistics_profile'] == null) {
+          nextUserData['logistics_profile'] = {};
+        }
+        final nextVersion = DateTime.now().millisecondsSinceEpoch;
+        await ProfileImageService.evict(
+          previousPath: _userData['profile_image'],
+          nextPath: nextUserData['profile_image'],
+          currentVersion: _profileImageVersion,
+          nextVersion: nextVersion,
+        );
         setState(() {
-          _userData = data['user'] ?? {};
-          if (_userData['logistics_profile'] == null) {
-            _userData['logistics_profile'] = {};
-          }
+          _profileImageVersion = nextVersion;
+          _userData = nextUserData;
         });
       }
     } catch (e) {
@@ -145,6 +160,11 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
       return;
     }
 
+    final currentLocation = await _ensureCurrentLocation();
+    if (currentLocation == null) {
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
@@ -163,7 +183,9 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
         body: jsonEncode({
           "batch_id": _scannedBatchId,
           "temperature": _tempController.text,
-          "location": "3.140853, 101.693207",
+          "location": currentLocation.apiLocation,
+          "latitude": currentLocation.latitude,
+          "longitude": currentLocation.longitude,
           "notes": _notesController.text,
           "signature": signatureBase64,
           "status": "Delivered"
@@ -185,10 +207,13 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
             const SnackBar(content: Text("Failed to upload data")));
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text("Connection Error")));
     } finally {
-      setState(() => _isSubmitting = false);
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
@@ -198,13 +223,70 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
       MaterialPageRoute(builder: (context) => const SimpleScannerPage()),
     );
 
-    if (result != null) {
-      setState(() {
-        _scannedBatchId = result;
-        _locationController.text = "Lat: 3.1408, Long: 101.6932";
-        _selectedIndex = 1;
-      });
+    final batchId = QrPayloadService.extractBatchId(result?.toString());
+    if (batchId == null) {
+      if (!mounted || result == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid batch QR code format.')),
+      );
+      return;
     }
+
+    if (!mounted) return;
+    setState(() {
+      _scannedBatchId = batchId;
+      _selectedIndex = 1;
+    });
+
+    await _refreshCurrentLocation();
+  }
+
+  Future<AppLocation?> _ensureCurrentLocation() async {
+    if (_currentLocation != null) {
+      return _currentLocation;
+    }
+
+    return _refreshCurrentLocation();
+  }
+
+  Future<AppLocation?> _refreshCurrentLocation() async {
+    if (_isFetchingLocation) {
+      return _currentLocation;
+    }
+
+    setState(() => _isFetchingLocation = true);
+
+    try {
+      final currentLocation = await LocationService.getCurrentLocation();
+      if (!mounted) return null;
+
+      setState(() {
+        _currentLocation = currentLocation;
+        _locationController.text = currentLocation.displayLabel;
+      });
+
+      return currentLocation;
+    } on AppLocationException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to read current GPS location right now.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isFetchingLocation = false);
+      }
+    }
+
+    return null;
   }
 
   Future<void> _makePhoneCall(String phoneNumber) async {
@@ -212,6 +294,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
     if (await canLaunchUrl(launchUri)) {
       await launchUrl(launchUri);
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Could not launch dialer")));
     }
@@ -302,6 +385,11 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
 
   Future<void> _submitIncidentToApi(
       String batchId, String type, String desc) async {
+    final currentLocation = await _refreshCurrentLocation();
+    if (currentLocation == null) {
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     try {
       final token = await _getToken();
@@ -317,7 +405,9 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
           "batch_id": batchId,
           "issue_type": type,
           "description": desc,
-          "location": "GPS: 3.140853, 101.693207"
+          "location": currentLocation.apiLocation,
+          "latitude": currentLocation.latitude,
+          "longitude": currentLocation.longitude
         }),
       );
       if (!mounted) return;
@@ -329,10 +419,13 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
             const SnackBar(content: Text("Failed to report incident")));
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text("Connection Error")));
     } finally {
-      setState(() => _isSubmitting = false);
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
@@ -345,10 +438,12 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
 
   // --- REDESIGNED DRAWER ---
   Widget _buildDrawer() {
-    ImageProvider? drawerImage;
-    if (_userData['profile_image'] != null) {
-      drawerImage = NetworkImage("$storageUrl${_userData['profile_image']}");
-    }
+    final drawerImageUrl = ProfileImageService.buildUrl(
+      _userData['profile_image'],
+      version: _profileImageVersion,
+    );
+    final ImageProvider? drawerImage =
+        drawerImageUrl != null ? NetworkImage(drawerImageUrl) : null;
 
     String vehiclePlate =
         _userData['logistics_profile']?['vehicle_plate_no'] ?? 'No Vehicle';
@@ -873,6 +968,20 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                   filled: true,
                   fillColor: Color(0xFFE3F2FD)),
             ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _isFetchingLocation ? null : _refreshCurrentLocation,
+                icon: _isFetchingLocation
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text("Refresh GPS"),
+              ),
+            ),
             const SizedBox(height: 15),
             TextFormField(
               controller: _notesController,
@@ -1154,6 +1263,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isEditing = false;
   bool _isSaving = false;
   bool _hasChanges = false;
+  int _profileImageVersion = DateTime.now().millisecondsSinceEpoch;
 
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
@@ -1237,8 +1347,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       var request =
           http.MultipartRequest('POST', Uri.parse('$baseUrl/user/update'));
       request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
       request.fields['name'] = _nameController.text;
-      request.fields['phone'] = _phoneController.text;
+      request.fields['phone_number'] = _phoneController.text;
 
       request.fields['vehicle_plate_no'] = _vehiclePlateController.text;
       request.fields['vehicle_type'] = _vehicleTypeController.text;
@@ -1253,8 +1364,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       var response = await http.Response.fromStream(streamedResponse);
       if (!mounted) return;
       if (response.statusCode == 200) {
-        final updatedData = jsonDecode(response.body)['user'];
+        final updatedData =
+            (jsonDecode(response.body)['user'] as Map).cast<String, dynamic>();
+        final nextVersion = DateTime.now().millisecondsSinceEpoch;
+        await ProfileImageService.evict(
+          previousPath: _userData['profile_image'],
+          nextPath: updatedData['profile_image'],
+          currentVersion: _profileImageVersion,
+          nextVersion: nextVersion,
+        );
+        if (!mounted) return;
         setState(() {
+          _profileImageVersion = nextVersion;
           _userData = updatedData;
           _isEditing = false;
           _profileImage = null;
@@ -1269,10 +1390,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text("Update Failed"), backgroundColor: Colors.red));
+        String message = "Update Failed";
+        try {
+          final body = jsonDecode(response.body);
+          if (body is Map && body['message'] != null) {
+            message = body['message'].toString();
+          }
+        } catch (_) {}
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message), backgroundColor: Colors.red));
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text("Connection Error"), backgroundColor: Colors.red));
     } finally {
@@ -1286,8 +1416,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_profileImage != null) {
       backgroundImage = FileImage(_profileImage!);
     } else if (_userData['profile_image'] != null) {
-      backgroundImage =
-          NetworkImage("$storageUrl${_userData['profile_image']}");
+      final imageUrl = ProfileImageService.buildUrl(
+        _userData['profile_image'],
+        version: _profileImageVersion,
+      );
+      if (imageUrl != null) {
+        backgroundImage = NetworkImage(imageUrl);
+      }
     }
 
     String vehiclePlate =

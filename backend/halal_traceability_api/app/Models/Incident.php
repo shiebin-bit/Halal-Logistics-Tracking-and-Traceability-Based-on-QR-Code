@@ -15,7 +15,7 @@ class Incident extends Model
 
     protected $fillable = [
         'batch_id', 'user_id', 'issue_type',
-        'description', 'location', 'status',
+        'description', 'location', 'status', 'severity',
     ];
 
     /** User who reported this incident. */

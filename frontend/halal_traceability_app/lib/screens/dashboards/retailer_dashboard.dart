@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../config.dart';
 import '../../services/auth_session_service.dart';
+import '../../services/profile_image_service.dart';
+import '../../services/qr_payload_service.dart';
 import 'widgets/dashboard_widgets.dart';
 
 /// Retailer workspace for incoming shipments, scanning, and inventory control.
@@ -39,9 +41,14 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
   List<dynamic> _myInventory = [];
   bool _isLoading = true;
   bool _isSubmitting = false;
+  int _profileImageVersion = DateTime.now().millisecondsSinceEpoch;
 
   // --- Quality Check ---
   String? _scannedBatchId;
+  final TextEditingController _arrivalTemperatureController =
+      TextEditingController();
+  final TextEditingController _rejectionReasonController =
+      TextEditingController();
   final Map<String, bool> _qualityChecks = {
     "packaging_intact": false,
     "temperature_check": false,
@@ -76,11 +83,20 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        final nextUserData = (data['user'] as Map).cast<String, dynamic>();
+        if (nextUserData['retailer_profile'] == null) {
+          nextUserData['retailer_profile'] = {};
+        }
+        final nextVersion = DateTime.now().millisecondsSinceEpoch;
+        await ProfileImageService.evict(
+          previousPath: _userData['profile_image'],
+          nextPath: nextUserData['profile_image'],
+          currentVersion: _profileImageVersion,
+          nextVersion: nextVersion,
+        );
         setState(() {
-          _userData = data['user'] ?? {};
-          if (_userData['retailer_profile'] == null) {
-            _userData['retailer_profile'] = {};
-          }
+          _profileImageVersion = nextVersion;
+          _userData = nextUserData;
         });
       }
     } catch (e) {
@@ -161,12 +177,20 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
       MaterialPageRoute(builder: (context) => const RetailerScannerPage()),
     );
 
-    if (result != null && mounted) {
-      setState(() {
-        _scannedBatchId = result;
-        _selectedIndex = 1;
-      });
+    final batchId = QrPayloadService.extractBatchId(result?.toString());
+    if (batchId == null) {
+      if (!mounted || result == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid batch QR code format.')),
+      );
+      return;
     }
+
+    if (!mounted) return;
+    setState(() {
+      _scannedBatchId = batchId;
+      _selectedIndex = 1;
+    });
   }
 
   Future<void> _acceptShipment() async {
@@ -174,6 +198,11 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
     if (!_qualityChecks.values.every((v) => v)) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text("Complete all quality checks before accepting!")));
+      return;
+    }
+    if (_arrivalTemperatureController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Arrival temperature is required before accepting.")));
       return;
     }
 
@@ -190,6 +219,7 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
         body: jsonEncode({
           "batch_id": _scannedBatchId,
           "quality_checks": _qualityChecks,
+          "arrival_temperature": _arrivalTemperatureController.text.trim(),
         }),
       );
       if (!mounted) return;
@@ -213,6 +243,16 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
 
   Future<void> _rejectShipment() async {
     if (_scannedBatchId == null) return;
+    if (_arrivalTemperatureController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Arrival temperature is required before rejecting.")));
+      return;
+    }
+    if (_rejectionReasonController.text.trim().length < 5) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Enter a rejection reason with a few details.")));
+      return;
+    }
 
     setState(() => _isSubmitting = true);
     try {
@@ -224,7 +264,12 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({"batch_id": _scannedBatchId}),
+        body: jsonEncode({
+          "batch_id": _scannedBatchId,
+          "arrival_temperature": _arrivalTemperatureController.text.trim(),
+          "reason": _rejectionReasonController.text.trim(),
+          "severity": "moderate",
+        }),
       );
       if (!mounted) return;
       if (response.statusCode == 200) {
@@ -248,7 +293,16 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
     setState(() {
       _scannedBatchId = null;
       _qualityChecks.updateAll((key, value) => false);
+      _arrivalTemperatureController.clear();
+      _rejectionReasonController.clear();
     });
+  }
+
+  @override
+  void dispose() {
+    _arrivalTemperatureController.dispose();
+    _rejectionReasonController.dispose();
+    super.dispose();
   }
 
   Future<void> _logout() async {
@@ -261,10 +315,12 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
   // --- REDESIGNED UI BUILDERS ---
 
   Widget _buildDrawer() {
-    ImageProvider? drawerImage;
-    if (_userData['profile_image'] != null) {
-      drawerImage = NetworkImage("$storageUrl${_userData['profile_image']}");
-    }
+    final drawerImageUrl = ProfileImageService.buildUrl(
+      _userData['profile_image'],
+      version: _profileImageVersion,
+    );
+    final ImageProvider? drawerImage =
+        drawerImageUrl != null ? NetworkImage(drawerImageUrl) : null;
 
     String storeName = _userData['retailer_profile']?['store_name'] ?? 'Store';
 
@@ -744,6 +800,26 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
               ),
             ),
             const SizedBox(height: 24),
+            TextField(
+              controller: _arrivalTemperatureController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: "Arrival Temperature (°C)",
+                prefixIcon: Icon(Icons.thermostat_rounded),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _rejectionReasonController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: "Rejection Reason",
+                prefixIcon: Icon(Icons.report_problem_rounded),
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 24),
 
             // Accept button
             SizedBox(
@@ -1080,6 +1156,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isEditing = false;
   bool _isSaving = false;
   bool _hasChanges = false;
+  int _profileImageVersion = DateTime.now().millisecondsSinceEpoch;
 
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
@@ -1163,9 +1240,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       var request =
           http.MultipartRequest('POST', Uri.parse('$baseUrl/user/update'));
       request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
 
       request.fields['name'] = _nameController.text;
-      request.fields['phone'] = _phoneController.text;
+      request.fields['phone_number'] = _phoneController.text;
 
       request.fields['store_name'] = _storeNameController.text;
       request.fields['business_reg_no'] = _regNoController.text;
@@ -1182,8 +1260,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       if (response.statusCode == 200) {
-        final updatedData = jsonDecode(response.body)['user'];
+        final updatedData =
+            (jsonDecode(response.body)['user'] as Map).cast<String, dynamic>();
+        final nextVersion = DateTime.now().millisecondsSinceEpoch;
+        await ProfileImageService.evict(
+          previousPath: _userData['profile_image'],
+          nextPath: updatedData['profile_image'],
+          currentVersion: _profileImageVersion,
+          nextVersion: nextVersion,
+        );
+        if (!mounted) return;
         setState(() {
+          _profileImageVersion = nextVersion;
           _userData = updatedData;
           _isEditing = false;
           _profileImage = null;
@@ -1197,14 +1285,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundColor: Colors.green),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text("Update Failed"), backgroundColor: Colors.red));
+        String message = "Update Failed";
+        try {
+          final body = jsonDecode(response.body);
+          if (body is Map && body['message'] != null) {
+            message = body['message'].toString();
+          }
+        } catch (_) {}
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message), backgroundColor: Colors.red));
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text("Connection Error"), backgroundColor: Colors.red));
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Connection Error"), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -1216,8 +1311,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_profileImage != null) {
       backgroundImage = FileImage(_profileImage!);
     } else if (_userData['profile_image'] != null) {
-      backgroundImage =
-          NetworkImage("$storageUrl${_userData['profile_image']}");
+      final imageUrl = ProfileImageService.buildUrl(
+        _userData['profile_image'],
+        version: _profileImageVersion,
+      );
+      if (imageUrl != null) {
+        backgroundImage = NetworkImage(imageUrl);
+      }
     }
 
     String storeName = _userData['retailer_profile']?['store_name'] ?? 'N/A';

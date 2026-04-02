@@ -43,6 +43,8 @@
 	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to sign in quickly and securely.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app uses your current location to record checkpoints and incidents accurately.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

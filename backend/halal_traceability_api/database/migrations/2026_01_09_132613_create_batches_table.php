@@ -32,6 +32,10 @@ return new class extends Migration {
             $table->string('status')->default('Processing'); // Processing, Ready, In Transit
             $table->integer('freshness_score')->default(100);
             $table->enum('halal_status', ['compliant', 'breached', 'investigation'])->default('compliant');
+            $table->foreignId('driver_id')->nullable()->constrained('users');
+            $table->string('truck_plate')->nullable();
+            $table->string('destination_address')->nullable();
+            $table->dateTime('estimated_arrival')->nullable();
 
             $table->timestamps();
         });

@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../config.dart';
+import '../../services/qr_payload_service.dart';
 
 /// Public consumer screen for batch lookup and authenticity verification.
 class ConsumerDashboard extends StatefulWidget {
@@ -98,9 +100,18 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
       MaterialPageRoute(builder: (context) => const QRScannerPage()),
     );
 
-    if (result != null) {
-      _searchController.text = result;
-      _onSearchChanged(result);
+    final batchId = QrPayloadService.extractBatchId(result?.toString());
+    if (batchId == null) {
+      if (!mounted || result == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid batch QR code format.')),
+      );
+      return;
+    }
+
+    if (mounted) {
+      _searchController.text = batchId;
+      _onSearchChanged(batchId);
     }
   }
 
@@ -336,9 +347,13 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(item['batch_id'] ?? 'Unknown ID',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 16)),
                       Text("${item['product_type'] ?? ''}",
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style:
                               TextStyle(color: Colors.grey[600], fontSize: 12)),
                       const SizedBox(height: 5),
@@ -370,10 +385,57 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
 
 // --- NEW PAGE: BATCH DETAILS (WITH TABS) ---
 /// Consumer-facing batch details with product and route timeline tabs.
-class ConsumerBatchDetailScreen extends StatelessWidget {
+class ConsumerBatchDetailScreen extends StatefulWidget {
   final Map<String, dynamic> batchData;
 
   const ConsumerBatchDetailScreen({super.key, required this.batchData});
+
+  @override
+  State<ConsumerBatchDetailScreen> createState() =>
+      _ConsumerBatchDetailScreenState();
+}
+
+class _ConsumerBatchDetailScreenState extends State<ConsumerBatchDetailScreen> {
+  late Map<String, dynamic> _batchData;
+  bool _isLoadingDetail = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _batchData = Map<String, dynamic>.from(widget.batchData);
+    _fetchBatchDetail();
+  }
+
+  Future<void> _fetchBatchDetail() async {
+    final batchId = (_batchData['batch_id'] ?? '').toString();
+    if (batchId.isEmpty) {
+      setState(() => _isLoadingDetail = false);
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/public/batches/$batchId'),
+        headers: {'Accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final batch = (data['batch'] as Map?)?.cast<String, dynamic>();
+        if (batch != null && mounted) {
+          setState(() {
+            _batchData = batch;
+          });
+        }
+      }
+    } catch (_) {
+      // Keep the initial payload for graceful fallback if detail loading fails.
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingDetail = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -381,7 +443,7 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(batchData['batch_id'] ?? "Batch Details"),
+          title: Text(_batchData['batch_id'] ?? "Batch Details"),
           backgroundColor: const Color(0xFF1B5E20),
           foregroundColor: Colors.white,
           bottom: const TabBar(
@@ -455,12 +517,13 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
                       _buildTrustBadge(
                         "Halal Certified",
                         Icons.verified,
-                        batchData['halal_status'] == 'Certified'
+                        _batchData['halal_status'] == 'compliant' &&
+                                _batchData['certificate_active'] == true
                             ? Colors.green
                             : Colors.orange,
                       ),
                       _buildTrustBadge(
-                        "Freshness: ${batchData['freshness_score'] ?? '100'}%",
+                        "Freshness: ${_batchData['freshness_score'] ?? '100'}%",
                         Icons.eco,
                         Colors.teal,
                       ),
@@ -468,19 +531,25 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
                   ),
                   const Divider(height: 30),
                   _buildDetailRow(
-                      "Product", batchData['product_type'] ?? "N/A"),
+                      "Product", _batchData['product_type'] ?? "N/A"),
                   const Divider(),
                   _buildDetailRow(
-                      "Weight", "${batchData['weight'] ?? "N/A"} kg"),
+                      "Weight", "${_batchData['weight'] ?? "N/A"} kg"),
                   const Divider(),
                   _buildDetailRow(
-                      "Farm Origin", batchData['origin_farm'] ?? "N/A"),
+                      "Farm Origin", _batchData['origin_farm'] ?? "N/A"),
                   const Divider(),
                   _buildDetailRow(
-                      "Processor", batchData['processing_factory'] ?? "N/A"),
+                      "Processor", _batchData['processing_factory'] ?? "N/A"),
                   const Divider(),
                   _buildDetailRow(
-                      "Current Status", batchData['status'] ?? "N/A"),
+                      "Current Status", _batchData['status'] ?? "N/A"),
+                  const Divider(),
+                  _buildDetailRow("Certificate No",
+                      _batchData['certificate_no'] ?? "N/A"),
+                  const Divider(),
+                  _buildDetailRow("Issuing Authority",
+                      _batchData['certificate_authority'] ?? "N/A"),
                 ],
               ),
             ),
@@ -562,12 +631,24 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(color: Colors.grey)),
-          Text(value,
+          Expanded(
+            flex: 3,
+            child: Text(title, style: const TextStyle(color: Colors.grey)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 5,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
               style:
-                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
         ],
       ),
     );
@@ -575,52 +656,131 @@ class ConsumerBatchDetailScreen extends StatelessWidget {
 
   // --- TAB 2: ROUTE TIMELINE ---
   Widget _buildTimelineTab() {
+    final checkpoints = (_batchData['checkpoints'] as List?) ?? const [];
+
+    if (_isLoadingDetail) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (checkpoints.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const Text("Traceability Journey",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Text(
+              "No checkpoint timeline is available for this batch yet.",
+              style: TextStyle(fontSize: 14),
+            ),
+          ),
+        ],
+      );
+    }
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
         const Text("Traceability Journey",
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 20),
-        _buildTimelineItem(
-          title: "Farm Production",
-          desc: batchData['origin_farm'] ?? "Registered Farm",
-          date: batchData['slaughter_date'] ?? "Unknown Date",
-          icon: Icons.agriculture,
-          isCompleted: true,
-          isFirst: true,
-        ),
-        _buildTimelineItem(
-          title: "Slaughter & Processing",
-          desc: batchData['processing_factory'] ?? "Halal Factory",
-          date: "Verified at facility",
-          icon: Icons.factory,
-          isCompleted: true,
-        ),
-        _buildTimelineItem(
-          title: "Logistics (Cold Chain)",
-          desc: "Maintained < -18°C",
-          date: "In Transit",
-          icon: Icons.local_shipping,
-          isCompleted: batchData['status'] == 'In Transit' ||
-              batchData['status'] == 'Delivered' ||
-              batchData['status'] == 'Ready',
-        ),
-        _buildTimelineItem(
-          title: "Retailer Received",
-          desc: "Ready for Sale",
-          date: "Available",
-          icon: Icons.store,
-          isCompleted: batchData['status'] == 'Delivered' ||
-              batchData['status'] == 'Ready',
-          isLast: true,
-        ),
+        ...checkpoints.asMap().entries.map((entry) {
+          final checkpoint = (entry.value as Map).cast<String, dynamic>();
+          final isFirst = entry.key == 0;
+          final isLast = entry.key == checkpoints.length - 1;
+
+          return _buildTimelineItem(
+            title: _timelineTitleFor(checkpoint),
+            desc: _timelineDescriptionFor(checkpoint),
+            date: _timelineDateFor(checkpoint),
+            icon: _timelineIconFor(checkpoint['action_type']?.toString()),
+            isCompleted: true,
+            isFirst: isFirst,
+            isLast: isLast,
+          );
+        }),
         const SizedBox(height: 30),
         Center(
-          child: Text("Data secured via Block-hain verification.",
+          child: Text("Data secured via blockchain verification.",
               style: TextStyle(color: Colors.grey[400], fontSize: 11)),
         ),
       ],
     );
+  }
+
+  String _timelineTitleFor(Map<String, dynamic> checkpoint) {
+    switch ((checkpoint['action_type'] ?? '').toString()) {
+      case 'arrival':
+        return 'Arrival Recorded';
+      case 'handover':
+        return 'Custody Transfer';
+      case 'departure':
+        return 'Departure Logged';
+      case 'transit_update':
+        return 'Transit Update';
+      default:
+        return 'Checkpoint Recorded';
+    }
+  }
+
+  String _timelineDescriptionFor(Map<String, dynamic> checkpoint) {
+    final location = (checkpoint['location_name'] ?? 'Unknown location').toString();
+    final summary = (checkpoint['summary'] ?? '').toString().trim();
+    final temperature = checkpoint['temperature']?.toString();
+
+    final parts = <String>[location];
+
+    if (temperature != null && temperature.isNotEmpty) {
+      parts.add('Temp: $temperature°C');
+    }
+
+    if (summary.isNotEmpty) {
+      parts.add(summary);
+    }
+
+    return parts.join(' • ');
+  }
+
+  String _timelineDateFor(Map<String, dynamic> checkpoint) {
+    final raw = checkpoint['created_at']?.toString();
+    if (raw == null || raw.isEmpty) {
+      return 'Unknown time';
+    }
+
+    try {
+      final parsed = DateTime.parse(raw).toLocal();
+      return DateFormat('dd MMM yyyy, hh:mm a').format(parsed);
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  IconData _timelineIconFor(String? actionType) {
+    switch (actionType) {
+      case 'arrival':
+        return Icons.store;
+      case 'handover':
+        return Icons.handshake;
+      case 'departure':
+        return Icons.logout_rounded;
+      case 'transit_update':
+        return Icons.local_shipping;
+      default:
+        return Icons.timeline;
+    }
   }
 
   Widget _buildTimelineItem(

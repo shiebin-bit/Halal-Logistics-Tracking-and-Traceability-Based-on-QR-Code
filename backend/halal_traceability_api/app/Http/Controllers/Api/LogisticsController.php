@@ -3,21 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Batch;
 use App\Models\Checkpoint;
 use App\Models\Incident;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
-/**
- * Handles logistics operations: route tracking, checkpoint submissions, and incident reporting.
- */
 class LogisticsController extends Controller
 {
-    /**
-     * Get all active (non-delivered) batches assigned to the current driver.
-     * Returns formatted route data with temperature, ETA, and progress.
-     */
     public function getAssignedRoutes(Request $request)
     {
         $user = $request->user();
@@ -25,37 +18,35 @@ class LogisticsController extends Controller
         $batches = Batch::with('checkpoints')
             ->where(function ($q) use ($user) {
                 $q->where('driver_id', $user->id)
-                  ->orWhere('current_holder_id', $user->id);
+                    ->orWhere('current_holder_id', $user->id);
             })
-            ->where('status', '!=', 'Delivered')
+            ->whereNotIn('status', ['Delivered', 'Rejected', 'Invalid - Certificate Revoked'])
             ->get();
 
-        $formatted = $batches->map(function ($b) {
-            $latestCheckpoint = $b->checkpoints()->latest()->first();
-            $currentTemp = $latestCheckpoint ? $latestCheckpoint->temperature . "°C" : "N/A";
-
-            $progress = 0.1;
-            if ($b->status === 'In Transit') $progress = 0.5;
-            if ($b->status === 'Delivered') $progress = 1.0;
+        $formatted = $batches->map(function (Batch $batch) {
+            $latestCheckpoint = $batch->checkpoints()->latest()->first();
+            $currentTemp = $latestCheckpoint ? $latestCheckpoint->temperature.'°C' : 'N/A';
+            $progress = match ($batch->status) {
+                'QR Generated' => 0.2,
+                'In Transit' => 0.6,
+                'Delivered' => 1.0,
+                default => 0.1,
+            };
 
             return [
-                "batch_id_raw" => $b->batch_id,
-                "truckId" => $b->truck_plate ?? "Assigning...",
-                "destination" => $b->destination_address ?? "See Manifest",
-                "eta" => $b->estimated_arrival ? date('H:i', strtotime($b->estimated_arrival)) : "TBD",
-                "temp" => $currentTemp,
-                "status" => $b->status,
-                "progress" => $progress
+                'batch_id_raw' => $batch->batch_id,
+                'truckId' => $batch->truck_plate ?? 'Assigning...',
+                'destination' => $batch->destination_address ?? 'See manifest',
+                'eta' => $batch->estimated_arrival?->format('H:i') ?? 'TBD',
+                'temp' => $currentTemp,
+                'status' => $batch->status,
+                'progress' => $progress,
             ];
         });
 
         return response()->json(['data' => $formatted]);
     }
 
-    /**
-     * Report an incident (e.g., spoilage, broken seal, delay).
-     * Saves to both incidents table (for admin) and checkpoints (for audit trail).
-     */
     public function reportIncident(Request $request)
     {
         $request->validate([
@@ -63,12 +54,19 @@ class LogisticsController extends Controller
             'issue_type' => 'required|string',
             'description' => 'required|string',
             'location' => 'required|string',
+            'severity' => 'nullable|in:minor,moderate,critical',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
         ]);
 
         $user = Auth::user();
         $batch = Batch::where('batch_id', $request->batch_id)->firstOrFail();
 
-        // Save to incidents table for admin dashboard
+        abort_if(!$batch->hasActiveQr(), 422, 'This batch is not ready for logistics tracking.');
+        abort_if(in_array($batch->status, ['Delivered', 'Rejected'], true), 409, 'This batch can no longer receive logistics incidents.');
+
+        $this->ensureBatchBelongsToLogistics($batch, $user->id, false);
+
         Incident::create([
             'batch_id' => $request->batch_id,
             'user_id' => $user->id,
@@ -76,73 +74,88 @@ class LogisticsController extends Controller
             'description' => $request->description,
             'location' => $request->location,
             'status' => 'Open',
+            'severity' => $request->severity ?? 'moderate',
         ]);
 
-        // Log to checkpoints for audit trail
         Checkpoint::create([
             'batch_id' => $batch->id,
             'user_id' => $user->id,
             'location_name' => $request->location,
-            'action_type' => 'transit_update',
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
+            'action_type' => 'incident',
             'temperature' => 0,
-            'notes' => "[INCIDENT: " . $request->issue_type . "] " . $request->description,
+            'notes' => 'Incident reported during transit.',
         ]);
 
-        return response()->json(['message' => 'Incident reported successfully']);
+        return response()->json(['message' => 'Incident reported successfully.']);
     }
 
-    /**
-     * Submit a checkpoint scan (temperature, location, signature).
-     * Handles custody transfer: if the scanner is not the current holder,
-     * ownership is transferred and status is updated based on the scanner's role.
-     */
     public function submitCheckpoint(Request $request)
     {
         $request->validate([
             'batch_id' => 'required|exists:batches,batch_id',
-            'temperature' => 'required',
-            'location' => 'required'
+            'temperature' => 'required|numeric|between:-40,20',
+            'location' => 'required|string',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'signature' => 'required|string',
+            'notes' => 'nullable|string',
         ]);
 
         $user = Auth::user();
         $batch = Batch::where('batch_id', $request->batch_id)->firstOrFail();
 
-        $actionType = 'transit_update';
-        $notes = $request->notes;
+        abort_if(!$batch->hasActiveQr(), 422, 'This batch has not completed halal validation and QR generation yet.');
+        abort_if(in_array($batch->status, ['Delivered', 'Rejected'], true), 409, 'Delivered or rejected batches can no longer receive checkpoints.');
 
-        // If scanner is not the current holder, transfer custody
-        if ($batch->current_holder_id != $user->id) {
+        $this->ensureBatchBelongsToLogistics($batch, $user->id, true);
+
+        if ((int) $batch->current_holder_id !== (int) $user->id) {
             $batch->current_holder_id = $user->id;
-
-            if ($user->role === 'retailer') {
-                $batch->status = 'Delivered';
-                $batch->destination_address = $user->retailerProfile->outlet_address ?? $request->location;
-                $actionType = 'arrival';
-                $notes = "Received by Retailer. Final Delivery.";
-            } elseif ($user->role === 'logistics') {
-                $batch->status = 'In Transit';
-                $batch->driver_id = $user->id;
-                if ($user->logisticsProfile) {
-                    $batch->truck_plate = $user->logisticsProfile->vehicle_plate_no;
-                }
-                $actionType = 'handover';
-                $notes = "Custody transferred to Logistics Driver.";
-            }
-
-            $batch->save();
         }
 
-        // Record checkpoint in audit trail
+        $batch->status = 'In Transit';
+        $batch->driver_id = $user->id;
+        $batch->current_location = $request->location;
+
+        if ($user->logisticsProfile) {
+            $batch->truck_plate = $user->logisticsProfile->vehicle_plate_no;
+        }
+
+        $batch->save();
+
+        $notes = trim((string) $request->notes);
+        if ($request->temperature < 0 || $request->temperature > 4) {
+            $notes = trim('[TEMP ALERT] '.$notes);
+        }
+
         Checkpoint::create([
             'batch_id' => $batch->id,
             'user_id' => $user->id,
             'location_name' => $request->location,
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
             'temperature' => $request->temperature,
-            'action_type' => $actionType,
-            'notes' => $notes,
-            'signature_path' => $request->signature
+            'action_type' => 'transit_update',
+            'notes' => $notes !== '' ? $notes : 'Transit checkpoint recorded.',
+            'signature_path' => $request->signature,
         ]);
 
-        return response()->json(['message' => 'Checkpoint recorded successfully']);
+        return response()->json(['message' => 'Checkpoint recorded successfully.']);
+    }
+
+    private function ensureBatchBelongsToLogistics(Batch $batch, int $userId, bool $allowProcessorHandover): void
+    {
+        $isAssignedToDriver = (int) $batch->driver_id === $userId;
+        $isCurrentHolder = (int) $batch->current_holder_id === $userId;
+        $isProcessorHandover = $allowProcessorHandover
+            && (int) $batch->current_holder_id === (int) $batch->processor_id;
+
+        abort_unless(
+            $isAssignedToDriver || $isCurrentHolder || $isProcessorHandover,
+            403,
+            'This batch is not available for this logistics account.'
+        );
     }
 }

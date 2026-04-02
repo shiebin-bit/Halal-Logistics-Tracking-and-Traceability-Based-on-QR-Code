@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:qr_flutter/qr_flutter.dart';
@@ -12,6 +13,7 @@ import 'package:open_file/open_file.dart';
 
 import '../../config.dart';
 import '../../services/auth_session_service.dart';
+import '../../services/profile_image_service.dart';
 import 'widgets/dashboard_widgets.dart';
 
 /// Processor workspace for inventory management, batch creation, and reports.
@@ -46,6 +48,9 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
   final _originController = TextEditingController();
   final _factoryController = TextEditingController();
   final _locationController = TextEditingController();
+  final _certificateAuthorityController =
+      TextEditingController(text: 'JAKIM');
+  final _certificateNoController = TextEditingController();
 
   String? _selectedProductType;
   final List<String> _productTypes = [
@@ -58,8 +63,9 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
   ];
 
   DateTime _selectedDate = DateTime.now();
+  DateTime _certificateValidUntil = DateTime.now().add(const Duration(days: 30));
   String? _generatedQRData;
-  String? _blockchainHash;
+  PlatformFile? _batchCertificateFile;
   bool _isGettingLocation = false;
   bool _isSavingBatch = false;
   bool _isDownloadingPdf = false;
@@ -71,6 +77,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
   final int _itemsPerPage = 5;
   List<dynamic> _apiBatches = [];
   bool _isLoadingInventory = true;
+  int _profileImageVersion = DateTime.now().millisecondsSinceEpoch;
 
   @override
   void initState() {
@@ -98,16 +105,61 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        final nextUserData = (data['user'] as Map).cast<String, dynamic>();
+        if (nextUserData['processor_profile'] == null) {
+          nextUserData['processor_profile'] = {};
+        }
+        final nextVersion = DateTime.now().millisecondsSinceEpoch;
+        await ProfileImageService.evict(
+          previousPath: _userData['profile_image'],
+          nextPath: nextUserData['profile_image'],
+          currentVersion: _profileImageVersion,
+          nextVersion: nextVersion,
+        );
+        final factoryAddress = _factoryAddressFrom(nextUserData);
         setState(() {
-          _userData = data['user'];
-          if (_userData['processor_profile'] == null) {
-            _userData['processor_profile'] = {};
+          _profileImageVersion = nextVersion;
+          _userData = nextUserData;
+          final certNo =
+              (nextUserData['processor_profile']?['halal_cert_no'] ?? '')
+                  .toString();
+          if (_certificateNoController.text.trim().isEmpty && certNo.isNotEmpty) {
+            _certificateNoController.text = certNo;
+          }
+          if (_locationController.text.trim().isEmpty &&
+              factoryAddress != null) {
+            _locationController.text = factoryAddress;
           }
         });
       }
     } catch (e) {
       print("Profile Load Error: $e");
     }
+  }
+
+  String? _factoryAddressFrom(Map<String, dynamic> source) {
+    final profile = source['processor_profile'];
+    if (profile is! Map) return null;
+
+    final value = profile['factory_address']?.toString().trim();
+    if (value == null || value.isEmpty) return null;
+    return value;
+  }
+
+  void _useFactoryAddress() {
+    final factoryAddress = _factoryAddressFrom(_userData);
+    if (factoryAddress == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Set your factory address in Profile Settings first.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _locationController.text = factoryAddress;
+    });
   }
 
   Future<void> _fetchInventory() async {
@@ -141,32 +193,68 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     setState(() => _isSavingBatch = true);
 
     try {
+      final resolvedLocation = _locationController.text.trim().isNotEmpty
+          ? _locationController.text.trim()
+          : _factoryAddressFrom(_userData);
+
+      if (resolvedLocation == null || resolvedLocation.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Factory address is required before creating a batch.'),
+          ),
+        );
+        return;
+      }
+
       final token = await _getToken();
-      final response = await http.post(
-        Uri.parse('$baseUrl/batches'),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          "batch_id": _batchIdController.text,
-          "product_type": _selectedProductType,
-          "weight": _weightController.text,
-          "origin_farm": _originController.text,
-          "processing_factory": _factoryController.text,
-          "current_location": _locationController.text,
-          "slaughter_date": DateFormat('yyyy-MM-dd').format(_selectedDate),
-          "status": "Processing",
-          "qr_code_hash": _blockchainHash,
-        }),
-      );
+      final request =
+          http.MultipartRequest('POST', Uri.parse('$baseUrl/batches'));
+      request.headers.addAll({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      request.fields.addAll({
+        'batch_id': _batchIdController.text.trim(),
+        'product_type': _selectedProductType ?? '',
+        'weight': _weightController.text.trim(),
+        'origin_farm': _originController.text.trim(),
+        'processing_factory': _factoryController.text.trim(),
+        'current_location': resolvedLocation,
+        'certificate_authority': _certificateAuthorityController.text.trim(),
+        'certificate_no': _certificateNoController.text.trim(),
+        'certificate_valid_until':
+            DateFormat('yyyy-MM-dd').format(_certificateValidUntil),
+        'slaughter_date': DateFormat('yyyy-MM-dd').format(_selectedDate),
+        'processing_date': DateFormat('yyyy-MM-dd').format(_selectedDate),
+        'generate_qr': _generatedQRData != null ? '1' : '0',
+      });
+
+      if (_batchCertificateFile?.path != null) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'certificate_document',
+          _batchCertificateFile!.path!,
+          filename: _batchCertificateFile!.name,
+        ));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
       if (!mounted) return;
       if (response.statusCode == 201) {
+        final payload = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = (payload['data'] as Map?)?.cast<String, dynamic>();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text("Batch Saved to Inventory successfully!")),
         );
+        if (data != null && data['qr_code_payload'] != null) {
+          setState(() {
+            _generatedQRData = data['qr_code_payload'].toString();
+          });
+        }
         _resetCreateForm();
         _fetchInventory();
         setState(() => _selectedIndex = 0);
@@ -182,6 +270,39 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
       );
     } finally {
       setState(() => _isSavingBatch = false);
+    }
+  }
+
+  Future<void> _pickBatchCertificate() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+      );
+
+      if (result == null || result.files.isEmpty) {
+        return;
+      }
+
+      final file = result.files.first;
+      if (file.size > 5 * 1024 * 1024) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Certificate file must be 5MB or smaller.')),
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() => _batchCertificateFile = file);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Certificate selected: ${file.name}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to pick certificate: $e')),
+      );
     }
   }
 
@@ -203,13 +324,10 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
 
   Future<void> _getCurrentLocation() async {
     setState(() => _isGettingLocation = true);
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() {
-      _isGettingLocation = false;
-      _locationController.text = _userData['processor_profile']
-              ['factory_address'] ??
-          "Factory Default Location";
-    });
+    _useFactoryAddress();
+    if (mounted) {
+      setState(() => _isGettingLocation = false);
+    }
   }
 
   Future<void> _downloadManifest() async {
@@ -257,10 +375,6 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     }
   }
 
-  String _generateBlockchainHash(String input) {
-    return "0x${(input.hashCode ^ DateTime.now().millisecondsSinceEpoch).toRadixString(16).padLeft(64, '0')}";
-  }
-
   void _resetCreateForm() {
     _batchIdController.clear();
     _weightController.clear();
@@ -268,20 +382,36 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     _factoryController.clear();
     _locationController.clear();
     setState(() {
+      _batchCertificateFile = null;
       _selectedProductType = null;
       _generatedQRData = null;
-      _blockchainHash = null;
       _selectedDate = DateTime.now();
+      _certificateValidUntil = DateTime.now().add(const Duration(days: 30));
     });
+  }
+
+  @override
+  void dispose() {
+    _batchIdController.dispose();
+    _weightController.dispose();
+    _originController.dispose();
+    _factoryController.dispose();
+    _locationController.dispose();
+    _certificateAuthorityController.dispose();
+    _certificateNoController.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
   // --- REDESIGNED UI BUILDERS ---
 
   Widget _buildDrawer() {
-    ImageProvider? drawerImage;
-    if (_userData['profile_image'] != null) {
-      drawerImage = NetworkImage("$storageUrl${_userData['profile_image']}");
-    }
+    final drawerImageUrl = ProfileImageService.buildUrl(
+      _userData['profile_image'],
+      version: _profileImageVersion,
+    );
+    final ImageProvider? drawerImage =
+        drawerImageUrl != null ? NetworkImage(drawerImageUrl) : null;
 
     String companyReg =
         _userData['processor_profile']?['company_reg_no'] ?? 'Pending';
@@ -832,7 +962,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                                   fontSize: 20,
                                   fontWeight: FontWeight.w700)),
                           const SizedBox(height: 4),
-                          Text("Register batch on the Halal Blockchain",
+                          Text("Server-signed QR traceability release",
                               style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.7),
                                   fontSize: 12)),
@@ -908,6 +1038,26 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                     validator: (v) => v!.isEmpty ? "Required" : null,
                   ),
                   const SizedBox(height: 15),
+                  TextFormField(
+                    controller: _certificateAuthorityController,
+                    decoration: const InputDecoration(
+                        labelText: "Certificate Authority",
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.verified_user_rounded)),
+                    validator: (v) =>
+                        v!.trim().isEmpty ? "Certificate authority required" : null,
+                  ),
+                  const SizedBox(height: 15),
+                  TextFormField(
+                    controller: _certificateNoController,
+                    decoration: const InputDecoration(
+                        labelText: "Batch Certificate No",
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.badge_rounded)),
+                    validator: (v) =>
+                        v!.trim().isEmpty ? "Certificate number required" : null,
+                  ),
+                  const SizedBox(height: 15),
                   Row(
                     children: [
                       Expanded(
@@ -915,7 +1065,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                           controller: _locationController,
                           readOnly: true,
                           decoration: const InputDecoration(
-                              labelText: "Current Location",
+                              labelText: "Current Factory Address",
                               border: OutlineInputBorder(),
                               prefixIcon: Icon(Icons.location_on_rounded)),
                           validator: (v) =>
@@ -936,9 +1086,33 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                                 width: 20,
                                 child: CircularProgressIndicator(
                                     color: Colors.white, strokeWidth: 2))
-                            : const Icon(Icons.my_location_rounded),
+                            : const Icon(Icons.factory_rounded),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 15),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _certificateValidUntil,
+                          firstDate: DateTime.now().subtract(
+                            const Duration(days: 365),
+                          ),
+                          lastDate: DateTime(2035));
+                      if (picked != null) {
+                        setState(() => _certificateValidUntil = picked);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                          labelText: "Certificate Valid Until",
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.verified_rounded)),
+                      child: Text(
+                          DateFormat('yyyy-MM-dd')
+                              .format(_certificateValidUntil)),
+                    ),
                   ),
                   const SizedBox(height: 15),
                   InkWell(
@@ -961,6 +1135,64 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                           Text(DateFormat('yyyy-MM-dd').format(_selectedDate)),
                     ),
                   ),
+                  const SizedBox(height: 15),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1565C0).withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFF1565C0).withValues(alpha: 0.18),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Batch Certificate Document",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF2C3E50),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _batchCertificateFile == null
+                              ? "No batch-specific file selected. The verified processor certificate on your profile will be used."
+                              : "Selected: ${_batchCertificateFile!.name}",
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _pickBatchCertificate,
+                                icon: const Icon(Icons.upload_file_rounded),
+                                label: Text(_batchCertificateFile == null
+                                    ? "UPLOAD CERTIFICATE"
+                                    : "REPLACE FILE"),
+                              ),
+                            ),
+                            if (_batchCertificateFile != null) ...[
+                              const SizedBox(width: 10),
+                              IconButton(
+                                onPressed: () {
+                                  setState(() => _batchCertificateFile = null);
+                                },
+                                tooltip: 'Use profile certificate instead',
+                                icon: const Icon(Icons.clear_rounded),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -974,17 +1206,15 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
                     setState(() {
-                      String rawData =
-                          "BATCH:${_batchIdController.text}|TYPE:$_selectedProductType|LOC:${_locationController.text}";
-                      _blockchainHash = _generateBlockchainHash(rawData);
-                      _generatedQRData = "$rawData|HASH:$_blockchainHash";
+                      _generatedQRData =
+                          "BATCH:${_batchIdController.text}|SIG:SERVER_PENDING";
                     });
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text("Batch Generated! Ready to Save.")));
+                        content: Text("Batch prepared. Secure QR will be signed by the server when saved.")));
                   }
                 },
                 icon: const Icon(Icons.fingerprint_rounded),
-                label: const Text("GENERATE SECURE BATCH"),
+                label: const Text("PREPARE SERVER QR"),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1B5E20),
                     foregroundColor: Colors.white),
@@ -1239,7 +1469,10 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
           children: [
             Center(
               child: QrImageView(
-                data: widget.batchData.toString(),
+                data: (widget.batchData['qr_code_payload'] ??
+                        widget.batchData['batch_id'] ??
+                        widget.batchData.toString())
+                    .toString(),
                 size: 150,
                 version: QrVersions.auto,
               ),
@@ -1357,6 +1590,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isEditing = false;
   bool _isSaving = false;
   bool _hasChanges = false;
+  int _profileImageVersion = DateTime.now().millisecondsSinceEpoch;
 
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
@@ -1440,8 +1674,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       var request =
           http.MultipartRequest('POST', Uri.parse('$baseUrl/user/update'));
       request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
       request.fields['name'] = _nameController.text;
-      request.fields['phone'] = _phoneController.text;
+      request.fields['phone_number'] = _phoneController.text;
       request.fields['company_reg_no'] = _companyRegController.text;
       request.fields['halal_cert_no'] = _halalCertController.text;
       request.fields['factory_address'] = _addressController.text;
@@ -1455,8 +1690,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
-        final updatedData = jsonDecode(response.body)['user'];
+        final updatedData =
+            (jsonDecode(response.body)['user'] as Map).cast<String, dynamic>();
+        final nextVersion = DateTime.now().millisecondsSinceEpoch;
+        await ProfileImageService.evict(
+          previousPath: _userData['profile_image'],
+          nextPath: updatedData['profile_image'],
+          currentVersion: _profileImageVersion,
+          nextVersion: nextVersion,
+        );
+        if (!mounted) return;
         setState(() {
+          _profileImageVersion = nextVersion;
           _userData = updatedData;
           _isEditing = false;
           _profileImage = null;
@@ -1471,9 +1716,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
         }
       } else {
+        String message = "Update Failed";
+        try {
+          final body = jsonDecode(response.body);
+          if (body is Map && body['message'] != null) {
+            message = body['message'].toString();
+          }
+        } catch (_) {}
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text("Update Failed"), backgroundColor: Colors.red));
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(message), backgroundColor: Colors.red));
         }
       }
     } catch (e) {
@@ -1492,8 +1744,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_profileImage != null) {
       backgroundImage = FileImage(_profileImage!);
     } else if (_userData['profile_image'] != null) {
-      backgroundImage =
-          NetworkImage("$storageUrl${_userData['profile_image']}");
+      final imageUrl = ProfileImageService.buildUrl(
+        _userData['profile_image'],
+        version: _profileImageVersion,
+      );
+      if (imageUrl != null) {
+        backgroundImage = NetworkImage(imageUrl);
+      }
     }
 
     String companyReg =

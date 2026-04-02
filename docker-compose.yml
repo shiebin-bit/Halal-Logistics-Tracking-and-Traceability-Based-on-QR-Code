@@ -1,0 +1,54 @@
+services:
+
+  app:
+    build:
+      context: ./backend/halal_traceability_api
+      dockerfile: Dockerfile
+    container_name: halaltrack_app
+    restart: unless-stopped
+    working_dir: /var/www/
+    depends_on:
+      - db
+    volumes:
+      - ./backend/halal_traceability_api/storage/app/public:/var/www/storage/app/public
+    environment:
+      APP_ENV: local
+      APP_DEBUG: true
+      APP_URL: http://127.0.0.1:8000
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: halaltrack_db
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
+  
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: halaltrack_nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend/halal_traceability_api/public:/var/www/public:ro
+      - ./backend/halal_traceability_api/storage/app/public:/var/www/public/storage:ro
+      - ./backend/halal_traceability_api/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+  db:
+    image: mariadb:10.11
+    container_name: halaltrack_mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: halaltrack_db
+    ports:
+      - "3308:3306"
+    volumes:
+      - halaltrack_db_data:/var/lib/mysql
+      - ./documentation/halaltrack_db.sql:/docker-entrypoint-initdb.d/halaltrack_db.sql:ro
+volumes:
+  halaltrack_db_data:
