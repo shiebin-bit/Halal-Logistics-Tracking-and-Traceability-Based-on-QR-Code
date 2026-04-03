@@ -102,7 +102,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
         });
       }
     } catch (e) {
-      print("Error fetching profile: $e");
+      debugPrint("Error fetching profile: $e");
     }
   }
 
@@ -326,7 +326,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                     decoration: const InputDecoration(
                         labelText: "Affected Batch",
                         border: OutlineInputBorder()),
-                    value: selectedBatchForIncident,
+                    initialValue: selectedBatchForIncident,
                     items: _assignedShipments.map((batch) {
                       String id = batch['batch_id_raw'] ?? 'Unknown';
                       return DropdownMenuItem(value: id, child: Text(id));
@@ -338,7 +338,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(
                         labelText: "Issue Type", border: OutlineInputBorder()),
-                    value: selectedIssueType,
+                    initialValue: selectedIssueType,
                     items: ['Delay', 'Accident', 'Spoilage', 'Theft', 'Other']
                         .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                         .toList(),

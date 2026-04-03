@@ -22,7 +22,7 @@ class _ConsumerDashboardState extends State<ConsumerDashboard> {
   final ScrollController _scrollController = ScrollController();
 
   // --- STATE VARIABLES ---
-  List<dynamic> _batches = [];
+  final List<dynamic> _batches = [];
   bool _isLoading = false;
   bool _hasMore = true;
   int _page = 1;
@@ -545,8 +545,8 @@ class _ConsumerBatchDetailScreenState extends State<ConsumerBatchDetailScreen> {
                   _buildDetailRow(
                       "Current Status", _batchData['status'] ?? "N/A"),
                   const Divider(),
-                  _buildDetailRow("Certificate No",
-                      _batchData['certificate_no'] ?? "N/A"),
+                  _buildDetailRow(
+                      "Certificate No", _batchData['certificate_no'] ?? "N/A"),
                   const Divider(),
                   _buildDetailRow("Issuing Authority",
                       _batchData['certificate_authority'] ?? "N/A"),
@@ -645,8 +645,7 @@ class _ConsumerBatchDetailScreenState extends State<ConsumerBatchDetailScreen> {
               textAlign: TextAlign.right,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style:
-                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
         ],
@@ -737,7 +736,8 @@ class _ConsumerBatchDetailScreenState extends State<ConsumerBatchDetailScreen> {
   }
 
   String _timelineDescriptionFor(Map<String, dynamic> checkpoint) {
-    final location = (checkpoint['location_name'] ?? 'Unknown location').toString();
+    final location =
+        (checkpoint['location_name'] ?? 'Unknown location').toString();
     final summary = (checkpoint['summary'] ?? '').toString().trim();
     final temperature = checkpoint['temperature']?.toString();
 

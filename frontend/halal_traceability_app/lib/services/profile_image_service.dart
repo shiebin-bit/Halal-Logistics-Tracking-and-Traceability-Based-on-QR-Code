@@ -6,8 +6,6 @@ import '../config.dart';
 class ProfileImageService {
   ProfileImageService._();
 
-  static const String _storageSegment = '/storage/';
-
   static String? buildUrl(dynamic path, {required int version}) {
     final rawPath = path?.toString().trim();
     if (rawPath == null || rawPath.isEmpty) {
@@ -50,11 +48,6 @@ class ProfileImageService {
   static String? _normalizeStoredPath(String path) {
     final uri = Uri.tryParse(path);
     if (uri != null && uri.hasScheme && uri.hasAuthority) {
-      final storageIndex = uri.path.indexOf(_storageSegment);
-      if (storageIndex >= 0) {
-        return uri.path.substring(storageIndex + _storageSegment.length);
-      }
-
       return uri.toString();
     }
 

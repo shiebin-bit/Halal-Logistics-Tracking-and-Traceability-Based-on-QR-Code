@@ -133,7 +133,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
         });
       }
     } catch (e) {
-      print("Profile Load Error: $e");
+      debugPrint("Profile Load Error: $e");
     }
   }
 
@@ -744,7 +744,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                                 builder: (context) =>
                                     BatchDetailScreen(batchData: item)),
                           );
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           if (result == true) {
                             _fetchInventory();
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -996,7 +996,7 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                   ),
                   const SizedBox(height: 15),
                   DropdownButtonFormField<String>(
-                    value: _selectedProductType,
+                    initialValue: _selectedProductType,
                     decoration: const InputDecoration(
                         labelText: "Product Type",
                         border: OutlineInputBorder(),

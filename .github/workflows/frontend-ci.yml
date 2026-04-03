@@ -1,0 +1,41 @@
+name: Frontend CI
+
+on:
+  push:
+    paths:
+      - ".github/workflows/frontend-ci.yml"
+      - "frontend/halal_traceability_app/**"
+  pull_request:
+    paths:
+      - ".github/workflows/frontend-ci.yml"
+      - "frontend/halal_traceability_app/**"
+  workflow_dispatch:
+
+jobs:
+  frontend-tests:
+    name: Flutter Analyze and Test
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend/halal_traceability_app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.6"
+          channel: stable
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze frontend
+        run: flutter analyze
+
+      - name: Run frontend tests
+        run: flutter test
