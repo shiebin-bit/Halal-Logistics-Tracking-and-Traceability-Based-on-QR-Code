@@ -1,1 +1,3 @@
-documentation/halaltrack_db.sql
+.agent/
+skills-lock.json
+documentation/database/halaltrack_db.sql
