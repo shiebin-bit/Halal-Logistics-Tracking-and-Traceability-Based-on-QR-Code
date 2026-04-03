@@ -1,0 +1,116 @@
+name: Backend CD
+
+# Required GitHub secrets:
+# - VPS_HOST: your VPS public IP or hostname
+# - VPS_PORT: usually 22
+# - VPS_USER: SSH username on the VPS
+# - VPS_SSH_KEY: private SSH key used by GitHub Actions
+# - GHCR_USERNAME: GitHub username or bot account that can read GHCR
+# - GHCR_TOKEN: GitHub token / PAT with package read permission
+#
+# Required VPS-side assumptions:
+# - The VPS already has Docker + Docker Compose plugin installed
+# - The VPS already has a deployment directory, for example /opt/REPLACE_ME/halal-track
+# - That directory contains this repository layout, including deploy/compose/docker-compose.prod.yml
+# - The compose file must reference the backend image through:
+#     image: ${BACKEND_IMAGE}
+# - The VPS already has its production Laravel .env and any required mounted volumes
+
+on:
+  workflow_run:
+    workflows: ["Backend CI"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Optional image tag to deploy, for example latest or sha-abc1234"
+        required: false
+        default: ""
+
+concurrency:
+  group: backend-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend to VPS
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+    permissions:
+      contents: read
+
+    env:
+      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/halal-track-backend
+      VPS_APP_DIR: /opt/REPLACE_ME/halal-track
+      DEPLOY_COMPOSE_FILE: deploy/compose/docker-compose.prod.yml
+      DEPLOY_APP_SERVICE: app
+      DEPLOY_NGINX_SERVICE: nginx
+
+    steps:
+      - name: Resolve deploy image
+        id: resolve-image
+        shell: bash
+        env:
+          INPUT_IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+          WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${INPUT_IMAGE_TAG:-}" ]; then
+            IMAGE_TAG="$INPUT_IMAGE_TAG"
+          elif [ -n "${WORKFLOW_RUN_HEAD_SHA:-}" ]; then
+            IMAGE_TAG="sha-${WORKFLOW_RUN_HEAD_SHA:0:7}"
+          else
+            IMAGE_TAG="latest"
+          fi
+
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "image_ref=${IMAGE_NAME}:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Show deployment target
+        run: |
+          echo "Deploying image:"
+          echo "${{ steps.resolve-image.outputs.image_ref }}"
+
+      - name: Deploy on VPS over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          IMAGE_REF: ${{ steps.resolve-image.outputs.image_ref }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          VPS_APP_DIR: ${{ env.VPS_APP_DIR }}
+          DEPLOY_COMPOSE_FILE: ${{ env.DEPLOY_COMPOSE_FILE }}
+          DEPLOY_APP_SERVICE: ${{ env.DEPLOY_APP_SERVICE }}
+          DEPLOY_NGINX_SERVICE: ${{ env.DEPLOY_NGINX_SERVICE }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          envs: IMAGE_REF,GHCR_USERNAME,GHCR_TOKEN,VPS_APP_DIR,DEPLOY_COMPOSE_FILE,DEPLOY_APP_SERVICE,DEPLOY_NGINX_SERVICE
+          script: |
+            set -euo pipefail
+
+            cd "$VPS_APP_DIR"
+
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+
+            export BACKEND_IMAGE="$IMAGE_REF"
+
+            docker pull "$BACKEND_IMAGE"
+            docker compose --env-file .env --file "$DEPLOY_COMPOSE_FILE" pull "$DEPLOY_APP_SERVICE"
+            docker compose --env-file .env --file "$DEPLOY_COMPOSE_FILE" up -d "$DEPLOY_APP_SERVICE" "$DEPLOY_NGINX_SERVICE"
+
+            # Uncomment after your production container and env are confirmed stable:
+            # docker compose --env-file .env --file "$DEPLOY_COMPOSE_FILE" exec -T "$DEPLOY_APP_SERVICE" php artisan migrate --force
+
+            docker image prune -f
+            docker logout ghcr.io

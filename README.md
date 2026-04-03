@@ -45,13 +45,22 @@ Main capabilities:
 
 ```text
 FYP_project/
+├── .github/
+│   └── workflows/
 ├── backend/
 │   └── halal_traceability_api/
+├── deploy/
+│   └── compose/
 ├── frontend/
 │   └── halal_traceability_app/
 ├── documentation/
+│   ├── database/
+│   ├── deployment/
+│   ├── proposals/
+│   └── reports/
 ├── docker-compose.yml
-└── docker-compose.dev.yml
+├── docker-compose.dev.yml
+└── README.md
 ```
 
 ## Current Status
@@ -77,7 +86,7 @@ Remaining production-oriented work:
 
 Detailed completion notes:
 
-- [requirements_completion_report_2026-04-02.md](documentation/requirements_completion_report_2026-04-02.md)
+- [requirements_completion_report.md](documentation/reports/requirements_completion_report.md)
 
 ## Local Development
 
@@ -94,6 +103,12 @@ Backend services:
 
 - API: `http://127.0.0.1:8000`
 - MariaDB host port: `3308`
+
+Optional bind-mount dev override:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+```
 
 ### Frontend with Flutter
 
@@ -146,13 +161,14 @@ Current backend result:
 
 ## Key Documentation
 
-- [Requirements Completion Report](documentation/requirements_completion_report_2026-04-02.md)
-- [System Fix Log and Readiness Review](documentation/system_fix_log_and_readiness_review_2026-03-30.md)
-- [Deployment Guide](documentation/vps_docker_nginx_github_actions_deployment_guide_2026-03-27.md)
+- [Documentation Index](documentation/README.md)
+- [Requirements Completion Report](documentation/reports/requirements_completion_report.md)
+- [System Fix Log and Readiness Review](documentation/reports/system_fix_log_and_readiness_review.md)
+- [Deployment Guide](documentation/deployment/vps_docker_nginx_github_actions_deployment_guide.md)
 
 ## Notes
 
 - Backend local runtime is Docker-based.
 - Frontend does not need Docker for local development.
 - CI can test backend, frontend, and Docker build independently from local setup.
-- CD can later deploy the Dockerized backend to a VPS through GitHub Actions.
+- CD can deploy the Dockerized backend to a VPS through GitHub Actions using `deploy/compose/docker-compose.prod.yml`.

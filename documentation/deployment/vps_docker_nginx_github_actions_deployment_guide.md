@@ -135,6 +135,7 @@ Files typically introduced:
 
 - `backend/halal_traceability_api/Dockerfile`
 - `docker-compose.yml`
+- `deploy/compose/docker-compose.prod.yml`
 - Optional Nginx config for local parity
 
 ### Phase 2: Manual Deployment to VPS
@@ -340,9 +341,14 @@ For production, prefer a real web stack such as:
 
 Avoid using `php artisan serve` as the production server.
 
-### Step 3: Create docker-compose.yml
+### Step 3: Create Docker Compose Files
 
 The compose file defines how services run together.
+
+Recommended split for this repository:
+
+- local development: `docker-compose.yml`
+- production deployment: `deploy/compose/docker-compose.prod.yml`
 
 Possible minimal production setup:
 

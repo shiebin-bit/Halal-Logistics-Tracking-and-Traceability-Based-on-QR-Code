@@ -49,6 +49,6 @@ services:
       - "3308:3306"
     volumes:
       - halaltrack_db_data:/var/lib/mysql
-      - ./documentation/halaltrack_db.sql:/docker-entrypoint-initdb.d/halaltrack_db.sql:ro
+      - ./documentation/database/halaltrack_db.sql:/docker-entrypoint-initdb.d/halaltrack_db.sql:ro
 volumes:
   halaltrack_db_data:

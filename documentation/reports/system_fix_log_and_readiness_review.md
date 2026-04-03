@@ -546,7 +546,7 @@ Infrastructure and seed data:
 - `docker-compose.yml`
 - `docker-compose.dev.yml`
 - `backend/halal_traceability_api/docker/nginx/default.conf`
-- `documentation/halaltrack_db.sql`
+- `documentation/database/halaltrack_db.sql`
 
 ## What Was Verified Live
 
