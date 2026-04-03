@@ -1,16 +1,86 @@
-# halal_traceability_app
+# HalalTrack Frontend
 
-A new Flutter project.
+Flutter mobile client for the HalalTrack platform.
 
-## Getting Started
+This app is used by `admin`, `processor`, `logistics`, `retailer`, and public `consumer` flows. It connects to the Laravel backend, supports QR-based traceability, and provides role-specific dashboards for supply chain operations.
 
-This project is a starting point for a Flutter application.
+## Main Capabilities
 
-A few resources to get you started if this is your first Flutter project:
+- login and session handling
+- role-based dashboard routing
+- processor batch creation flow
+- logistics QR scan and checkpoint submission
+- retailer shipment acceptance workflow
+- public consumer traceability lookup
+- profile image and document-related UI flows
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Stack
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Flutter
+- Dart
+- `http`
+- `mobile_scanner`
+- `geolocator`
+- `flutter_secure_storage`
+
+## Run Locally
+
+From this directory:
+
+```powershell
+flutter pub get
+flutter run
+```
+
+## API Configuration
+
+The app reads its API origin from `lib/config.dart`.
+
+Default behavior:
+
+- Android emulator uses `http://10.0.2.2:8000`
+- web and non-Android targets use `http://127.0.0.1:8000`
+
+Override it when needed:
+
+```powershell
+flutter run --dart-define=API_ORIGIN=https://api.example.com
+```
+
+## Quality Checks
+
+Analyze:
+
+```powershell
+flutter analyze
+```
+
+Run tests:
+
+```powershell
+flutter test
+```
+
+## Project Structure
+
+```text
+lib/
+├── config.dart
+├── main.dart
+├── screens/
+│   ├── dashboards/
+│   └── ...
+└── services/
+    ├── auth_session_service.dart
+    ├── location_service.dart
+    ├── profile_image_service.dart
+    └── qr_payload_service.dart
+```
+
+## Notes
+
+- This app expects the backend API to be reachable and seeded for local demo flows.
+- Public consumer traceability does not require login.
+- Production builds should point to the real backend origin with `--dart-define=API_ORIGIN=...`.
+
+For broader project context, see the root [README](../../README.md).

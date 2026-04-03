@@ -1,34 +1,57 @@
-# HalalTrack
+<p align="center">
+  <img src="frontend/halal_traceability_app/assets/images/logo.png" alt="HalalTrack Logo" width="120">
+</p>
 
-HalalTrack is a halal logistics and traceability system built for multi-role supply chain monitoring. The project provides a Laravel REST API, a Flutter mobile app, public consumer traceability, and Docker-based local backend infrastructure.
+<h1 align="center">HalalTrack</h1>
 
-## Project Scope
+<p align="center">
+  A multi-role halal logistics and traceability platform for batch verification, cold-chain events, approval workflows, and public consumer transparency.
+</p>
 
-The system is designed around five user roles:
+<p align="center">
+  <img src="https://img.shields.io/badge/Laravel-12-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 12">
+  <img src="https://img.shields.io/badge/Flutter-Mobile%20App-02569B?style=for-the-badge&logo=flutter&logoColor=white" alt="Flutter">
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088FF?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions">
+</p>
 
-- `admin`
-- `processor`
-- `logistics`
-- `retailer`
-- `consumer`
+## Why This Project Exists
 
-Main capabilities:
+HalalTrack is built to make halal supply chain handling easier to verify, easier to audit, and easier to present. It combines a Laravel backend, a Flutter mobile app, public traceability access, and Docker-based infrastructure into one workflow-driven system.
 
-- role-based login and dashboard access
-- batch creation and halal certificate tracking
-- backend-generated QR traceability
-- logistics checkpoint and incident reporting
-- retailer acceptance and rejection workflow
-- public consumer traceability view
-- admin approval and certificate governance
+Instead of treating traceability as a static record, the platform captures actual batch movement, role ownership, checkpoint submissions, incident reporting, and certificate governance across the supply chain.
 
-## Tech Stack
+## What It Covers
+
+- Multi-role access for `admin`, `processor`, `logistics`, `retailer`, and `consumer`
+- Backend-generated QR traceability for halal product batches
+- Public consumer lookup with sanitized batch visibility
+- Batch lifecycle management with certificate metadata and manifest export
+- Logistics checkpoint verification with temperature, notes, and signatures
+- Retailer acceptance and rejection workflow
+- Admin approval flow for partner onboarding and certificate control
+- Dockerized backend runtime for local development and production deployment
+- GitHub Actions CI for backend tests, frontend checks, and Docker image build
+- GHCR-ready backend image publishing and VPS deployment workflow scaffolding
+
+## Role Snapshot
+
+| Role | Main Responsibility |
+| --- | --- |
+| `admin` | approve users, review pending registrations, view platform stats, govern certificates |
+| `processor` | create batches, attach halal certificate details, manage processor inventory |
+| `logistics` | scan QR batches, submit checkpoints, report incidents, update custody trail |
+| `retailer` | receive assigned shipments, accept or reject delivery handoff |
+| `consumer` | verify public batch traceability without login |
+
+## Stack
 
 ### Backend
 
 - Laravel 12
 - Laravel Sanctum
 - MariaDB
+- DOMPDF
 
 ### Frontend
 
@@ -40,8 +63,25 @@ Main capabilities:
 - Docker
 - Docker Compose
 - Nginx
+- GitHub Actions
+- GitHub Container Registry
 
-## Repository Structure
+## Architecture
+
+```text
+Flutter App / Browser
+        |
+        v
+     Nginx
+        |
+        v
+ Laravel API
+        |
+        v
+    MariaDB
+```
+
+Repository layout:
 
 ```text
 FYP_project/
@@ -50,47 +90,49 @@ FYP_project/
 ├── backend/
 │   └── halal_traceability_api/
 ├── deploy/
-│   └── compose/
+│   ├── compose/
+│   └── README.md
 ├── frontend/
 │   └── halal_traceability_app/
 ├── documentation/
 │   ├── database/
 │   ├── deployment/
 │   ├── proposals/
-│   └── reports/
+│   ├── reports/
+│   └── README.md
 ├── docker-compose.yml
-├── docker-compose.dev.yml
-└── README.md
+└── docker-compose.dev.yml
 ```
 
-## Current Status
+## Current State
 
-The project is in a strong demo-ready state.
+The project is already in a strong demo-ready state.
 
-Completed:
+Implemented:
 
-- core mandatory design requirements are largely implemented
-- backend, API, and database are running correctly in Docker
-- consumer public traceability is working with sanitized data
-- batch-level certificate and backend QR generation are implemented
-- retailer and logistics validation logic is implemented
-- admin approval and revoke certificate flows are implemented
-- backend regression tests are passing
+- role-based backend authorization
+- partner approval workflow before login
+- registration document handling
+- public batch traceability view
+- real checkpoint-based timeline rendering
+- manifest PDF export
+- QR payload parsing across app flows
+- Dockerized local backend stack
+- backend CI, frontend CI, backend image build, and CD scaffolding
 
-Remaining production-oriented work:
+Still production-facing work:
 
-- deploy to VPS / production server
-- connect a real mail provider / SMTP service
-- finalize CI/CD workflows
-- remove or disable demo-only bypass rules for production
+- finalize VPS deployment secrets and runtime configuration
+- connect real SMTP credentials and domain mail records
+- harden or remove demo-only shortcuts before real release
 
-Detailed completion notes:
+Detailed status:
 
-- [requirements_completion_report.md](documentation/reports/requirements_completion_report.md)
+- [Requirements Completion Report](documentation/reports/requirements_completion_report.md)
 
-## Local Development
+## Quick Start
 
-### Backend with Docker
+### 1. Run the Backend Locally
 
 From the repository root:
 
@@ -99,76 +141,99 @@ docker compose up -d --build
 docker exec halaltrack_app php artisan migrate --force
 ```
 
-Backend services:
+Local services:
 
 - API: `http://127.0.0.1:8000`
 - MariaDB host port: `3308`
 
-Optional bind-mount dev override:
+Optional bind-mount development mode:
 
 ```powershell
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 ```
 
-### Frontend with Flutter
+### 2. Run the Flutter App
 
-From:
-
-```text
-frontend/halal_traceability_app
-```
-
-Run:
+From `frontend/halal_traceability_app`:
 
 ```powershell
 flutter pub get
 flutter run
 ```
 
-Android emulator API origin is configured to use:
+Android emulator API origin defaults to:
 
 ```text
 http://10.0.2.2:8000
 ```
 
-## Demo Accounts
-
-These demo accounts are available for local demonstration:
-
-- `admin@halalchain.my`
-- `ali@processor.com`
-- `driver@logistics.com`
-- `manager@retailer.com`
-
-Note:
-
-- public `consumer` traceability does not require login
-- local demo mode currently includes limited bypass behavior for faster testing
-- real production deployment should remove or disable those demo-only bypass rules
-
 ## Testing
 
-Backend test suite:
+Backend:
 
 ```powershell
 cd backend/halal_traceability_api
 php artisan test
 ```
 
-Current backend result:
+Frontend:
 
-- `17 passed`
+```powershell
+cd frontend/halal_traceability_app
+flutter analyze
+flutter test
+```
 
-## Key Documentation
+Current local validation completed in this repository:
+
+- backend `composer test` passes
+- frontend `flutter analyze` passes
+- frontend `flutter test` passes
+- backend Docker image builds successfully
+
+## CI/CD
+
+Current GitHub Actions workflows:
+
+- [backend-ci.yml](.github/workflows/backend-ci.yml)
+  Backend tests, Docker image build, and GHCR push on `main`
+- [frontend-ci.yml](.github/workflows/frontend-ci.yml)
+  Flutter analyze and test
+- [cd.yml](.github/workflows/cd.yml)
+  VPS deployment workflow template over SSH using GHCR images
+
+Production deployment assets:
+
+- [deploy/compose/docker-compose.prod.yml](deploy/compose/docker-compose.prod.yml)
+- [deploy/README.md](deploy/README.md)
+
+## Demo Accounts
+
+Local demo accounts available for presentation:
+
+- `admin@halalchain.my`
+- `ali@processor.com`
+- `driver@logistics.com`
+- `manager@retailer.com`
+
+Notes:
+
+- public consumer traceability does not require login
+- local demo mode still includes limited shortcuts for testing speed
+- production rollout should tighten or remove those bypasses
+
+## Documentation
 
 - [Documentation Index](documentation/README.md)
+- [Deployment Guide](documentation/deployment/vps_docker_nginx_github_actions_deployment_guide.md)
 - [Requirements Completion Report](documentation/reports/requirements_completion_report.md)
 - [System Fix Log and Readiness Review](documentation/reports/system_fix_log_and_readiness_review.md)
-- [Deployment Guide](documentation/deployment/vps_docker_nginx_github_actions_deployment_guide.md)
+- [Production Readiness Security Audit](documentation/reports/production_readiness_security_audit.md)
+- [Live Shipment Map Proposal](documentation/proposals/live_shipment_map_proposal.md)
 
 ## Notes
 
-- Backend local runtime is Docker-based.
-- Frontend does not need Docker for local development.
-- CI can test backend, frontend, and Docker build independently from local setup.
-- CD can deploy the Dockerized backend to a VPS through GitHub Actions using `deploy/compose/docker-compose.prod.yml`.
+- Local backend runtime is Docker-based.
+- Frontend development does not require Docker.
+- Production deployment is designed around GHCR image pull plus remote Docker Compose.
+- Sensitive values such as production `.env`, VPS SSH keys, and registry credentials should never be committed.

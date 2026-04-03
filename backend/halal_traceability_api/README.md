@@ -1,59 +1,100 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# HalalTrack Backend
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel REST API for the HalalTrack platform.
 
-## About Laravel
+This backend handles authentication, role authorization, batch lifecycle management, checkpoint history, manifest export, registration approval, and public traceability endpoints consumed by the Flutter app and browser clients.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Main Responsibilities
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- Sanctum-based authentication
+- role and ownership authorization
+- processor batch creation and certificate handling
+- logistics checkpoint and incident APIs
+- retailer acceptance workflow
+- admin approval and governance endpoints
+- public batch listing and detail endpoints
+- manifest PDF generation
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Stack
 
-## Learning Laravel
+- PHP 8.2
+- Laravel 12
+- Laravel Sanctum
+- MariaDB
+- DOMPDF
+- PHPUnit
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Local Development
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+This backend is usually run through the repository root Docker setup.
 
-## Laravel Sponsors
+From the project root:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```powershell
+docker compose up -d --build
+docker exec halaltrack_app php artisan migrate --force
+```
 
-### Premium Partners
+If you want to work directly inside this folder without Docker:
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```powershell
+composer install
+Copy-Item .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan serve
+```
 
-## Contributing
+## Testing
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Run the backend test suite:
 
-## Code of Conduct
+```powershell
+composer test
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Test configuration uses SQLite in memory through [phpunit.xml](./phpunit.xml).
 
-## Security Vulnerabilities
+## Useful Composer Scripts
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+- `composer setup`
+- `composer dev`
+- `composer test`
 
-## License
+## Structure
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```text
+app/
+config/
+database/
+public/
+resources/
+routes/
+tests/
+Dockerfile
+phpunit.xml
+composer.json
+```
+
+## Deployment Model
+
+The current repository flow is:
+
+1. GitHub Actions runs backend tests
+2. GitHub Actions builds the Docker image from [Dockerfile](./Dockerfile)
+3. On `main`, the image is pushed to GHCR
+4. The CD workflow can deploy that image to a VPS using Docker Compose
+
+Production deployment assets live at the repository level:
+
+- [backend-ci.yml](../../.github/workflows/backend-ci.yml)
+- [cd.yml](../../.github/workflows/cd.yml)
+- [docker-compose.prod.yml](../../deploy/compose/docker-compose.prod.yml)
+
+## Notes
+
+- Local testing uses SQLite in-memory, not MariaDB.
+- Production secrets should stay in VPS environment files or GitHub secrets, never in the repository.
+- This folder contains the application source and image definition; deployment orchestration is kept outside this folder on purpose.
+
+For broader system context, see the root [README](../../README.md).
