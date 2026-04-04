@@ -28,6 +28,7 @@ Instead of treating traceability as a static record, the platform captures actua
 - Public consumer lookup with sanitized batch visibility
 - Batch lifecycle management with certificate metadata and manifest export
 - Logistics checkpoint verification with temperature, notes, and signatures
+- Checkpoint-based route map rendering on real OpenStreetMap tiles for consumer, admin, and logistics views
 - Retailer acceptance and rejection workflow
 - Admin approval flow for partner onboarding and certificate control
 - Dockerized backend runtime for local development and production deployment
@@ -115,6 +116,7 @@ Implemented:
 - registration document handling
 - public batch traceability view
 - real checkpoint-based timeline rendering
+- checkpoint-based route map rendering using OpenStreetMap tiles
 - manifest PDF export
 - QR payload parsing across app flows
 - Dockerized local backend stack
@@ -126,8 +128,15 @@ Still production-facing work:
 - connect real SMTP credentials and domain mail records
 - harden or remove demo-only shortcuts before real release
 
+Important scope note:
+
+- the current map is a real geographic map based on stored checkpoint coordinates
+- it does not require Google Maps API keys
+- it is not continuous live GPS streaming; route updates happen when checkpoints are submitted
+
 Detailed status:
 
+- [Current Improvement Roadmap](documentation/reports/current_improvement_roadmap.md)
 - [Requirements Completion Report](documentation/reports/requirements_completion_report.md)
 
 ## Quick Start
@@ -190,6 +199,11 @@ Current local validation completed in this repository:
 - frontend `flutter analyze` passes
 - frontend `flutter test` passes
 - backend Docker image builds successfully
+
+Business logic status:
+
+- the core multi-role demo flows are implemented and locally runnable
+- the remaining incomplete items are production-facing infrastructure and rollout items, not the main FYP business workflows
 
 ## CI/CD
 

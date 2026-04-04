@@ -6,7 +6,9 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../config.dart';
+import '../../services/batch_route_mapper.dart';
 import '../../services/qr_payload_service.dart';
+import '../../widgets/route_map_card.dart';
 
 /// Public consumer screen for batch lookup and authenticity verification.
 class ConsumerDashboard extends StatefulWidget {
@@ -656,6 +658,7 @@ class _ConsumerBatchDetailScreenState extends State<ConsumerBatchDetailScreen> {
   // --- TAB 2: ROUTE TIMELINE ---
   Widget _buildTimelineTab() {
     final checkpoints = (_batchData['checkpoints'] as List?) ?? const [];
+    final routePoints = BatchRouteMapper.toMapPoints(checkpoints);
 
     if (_isLoadingDetail) {
       return const Center(child: CircularProgressIndicator());
@@ -665,6 +668,12 @@ class _ConsumerBatchDetailScreenState extends State<ConsumerBatchDetailScreen> {
       return ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          RouteMapCard(
+            title: 'Transit Route',
+            points: routePoints,
+            totalCheckpoints: checkpoints.length,
+          ),
+          const SizedBox(height: 20),
           const Text("Traceability Journey",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
@@ -693,6 +702,12 @@ class _ConsumerBatchDetailScreenState extends State<ConsumerBatchDetailScreen> {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        RouteMapCard(
+          title: 'Transit Route',
+          points: routePoints,
+          totalCheckpoints: checkpoints.length,
+        ),
+        const SizedBox(height: 20),
         const Text("Traceability Journey",
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 20),

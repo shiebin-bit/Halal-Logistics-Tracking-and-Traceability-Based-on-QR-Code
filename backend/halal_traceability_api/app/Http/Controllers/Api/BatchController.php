@@ -374,6 +374,8 @@ class BatchController extends Controller
         return [
             'id' => $checkpoint->id,
             'location_name' => $checkpoint->location_name,
+            'latitude' => $checkpoint->latitude,
+            'longitude' => $checkpoint->longitude,
             'temperature' => $checkpoint->temperature,
             'action_type' => $actionType,
             'created_at' => $checkpoint->created_at,

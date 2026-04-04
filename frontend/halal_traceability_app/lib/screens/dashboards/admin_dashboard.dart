@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../config.dart';
 import '../../services/auth_session_service.dart';
+import '../../services/batch_route_mapper.dart';
+import '../../widgets/route_map_card.dart';
 import 'widgets/dashboard_widgets.dart';
 
 /// Admin workspace for approvals, monitoring, and system-level oversight.
@@ -22,16 +24,37 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Timer? _debounce;
   int _selectedIndex = 0; // 0: Overview, 1: Approvals, 2: Batches, 3: Incidents
   bool _isLoading = false;
+  String _selectedBatchStatusFilter = 'all';
 
   // --- DATA LISTS ---
   Map<String, dynamic> _stats = {
     "total_batches": 0,
     "pending_users": 0,
-    "active_issues": 0
+    "active_issues": 0,
+    "status_breakdown": {},
+    "certificate_summary": {},
   };
   List<dynamic> _pendingUsers = [];
   List<dynamic> _batches = [];
   List<dynamic> _incidents = [];
+
+  Map<String, dynamic> get _statusBreakdown =>
+      (_stats['status_breakdown'] as Map?)?.cast<String, dynamic>() ??
+      const <String, dynamic>{};
+
+  Map<String, dynamic> get _certificateSummary =>
+      (_stats['certificate_summary'] as Map?)?.cast<String, dynamic>() ??
+      const <String, dynamic>{};
+
+  List<dynamic> get _visibleBatches {
+    if (_selectedBatchStatusFilter == 'all') {
+      return _batches;
+    }
+
+    return _batches.where((batch) {
+      return (batch['status'] ?? '').toString() == _selectedBatchStatusFilter;
+    }).toList(growable: false);
+  }
 
   @override
   void initState() {
@@ -99,6 +122,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   void _onSearchChanged(String query) {
+    setState(() {});
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
       _fetchBatches(query: query);
@@ -160,6 +184,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void _showMessage(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
+
+  String _metricLabel(dynamic value) => (value ?? 0).toString();
+
+  List<Map<String, String>> get _batchStatusFilters => const [
+        {'label': 'All', 'value': 'all'},
+        {'label': 'Ready', 'value': 'Ready for QR Generation'},
+        {'label': 'QR', 'value': 'QR Generated'},
+        {'label': 'Transit', 'value': 'In Transit'},
+        {'label': 'Delivered', 'value': 'Delivered'},
+        {'label': 'Revoked', 'value': 'Invalid - Certificate Revoked'},
+      ];
 
   Map<String, dynamic>? _roleProfileFor(Map<String, dynamic> user) {
     final role = (user['role'] ?? '').toString();
@@ -607,9 +642,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
             const SizedBox(height: 28),
 
-            // Recent batches
             StaggeredListItem(
               index: 3,
+              child: const SectionTitle(
+                  title: "Reporting Snapshot",
+                  accentColor: Color(0xFF6C63FF)),
+            ),
+            const SizedBox(height: 12),
+            StaggeredListItem(
+              index: 4,
+              child: _buildReportingSnapshotCard(),
+            ),
+            const SizedBox(height: 24),
+
+            // Recent batches
+            StaggeredListItem(
+              index: 5,
               child: const SectionTitle(
                   title: "Recent Batches", accentColor: Color(0xFF6C63FF)),
             ),
@@ -621,7 +669,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               itemBuilder: (ctx, i) {
                 final batch = _batches[i];
                 return StaggeredListItem(
-                  index: 4 + i,
+                  index: 6 + i,
                   child: GestureDetector(
                     onTap: () async {
                       await Navigator.push(
@@ -677,6 +725,113 @@ class _AdminDashboardState extends State<AdminDashboard> {
             )
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildReportingSnapshotCard() {
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "A lightweight management report from the current batch and certificate state.",
+            style: TextStyle(color: Colors.grey[600], height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _buildOverviewInsightTile(
+                icon: Icons.local_shipping_rounded,
+                label: "In Transit",
+                value: _metricLabel(_statusBreakdown['in_transit']),
+                color: const Color(0xFF1565C0),
+              ),
+              _buildOverviewInsightTile(
+                icon: Icons.inventory_2_rounded,
+                label: "Delivered",
+                value: _metricLabel(_statusBreakdown['delivered']),
+                color: const Color(0xFF2E7D32),
+              ),
+              _buildOverviewInsightTile(
+                icon: Icons.verified_rounded,
+                label: "Active Certs",
+                value: _metricLabel(_certificateSummary['active']),
+                color: const Color(0xFF6C63FF),
+              ),
+              _buildOverviewInsightTile(
+                icon: Icons.gpp_bad_rounded,
+                label: "Revoked Certs",
+                value: _metricLabel(_certificateSummary['revoked']),
+                color: const Color(0xFFC62828),
+              ),
+              _buildOverviewInsightTile(
+                icon: Icons.schedule_rounded,
+                label: "Expiring Soon",
+                value: _metricLabel(_certificateSummary['expiring_soon']),
+                color: const Color(0xFFFF9800),
+              ),
+              _buildOverviewInsightTile(
+                icon: Icons.event_busy_rounded,
+                label: "Expired Certs",
+                value: _metricLabel(_certificateSummary['expired']),
+                color: const Color(0xFF8D6E63),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverviewInsightTile({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF2C3E50),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -826,39 +981,107 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildBatchOversight() {
+    final visibleBatches = _visibleBatches;
+
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(20.0),
-          child: TextField(
-            controller: _searchController,
-            onChanged: _onSearchChanged,
-            decoration: InputDecoration(
-              hintText: "Search Batch ID or Product...",
-              hintStyle: TextStyle(color: Colors.grey[400]),
-              prefixIcon: Icon(Icons.search_rounded, color: Colors.grey[400]),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: Icon(Icons.clear_rounded, color: Colors.grey[400]),
-                      onPressed: () {
-                        _searchController.clear();
-                        _onSearchChanged('');
+          child: Column(
+            children: [
+              TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                decoration: InputDecoration(
+                  hintText: "Search Batch ID or Product...",
+                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  prefixIcon:
+                      Icon(Icons.search_rounded, color: Colors.grey[400]),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon:
+                              Icon(Icons.clear_rounded, color: Colors.grey[400]),
+                          onPressed: () {
+                            _searchController.clear();
+                            _onSearchChanged('');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _batchStatusFilters.map((filter) {
+                    final isSelected =
+                        _selectedBatchStatusFilter == filter['value'];
+                    return ChoiceChip(
+                      label: Text(filter['label']!),
+                      selected: isSelected,
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedBatchStatusFilter = filter['value']!;
+                        });
                       },
-                    )
-                  : null,
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none),
-              enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none),
-            ),
+                      selectedColor:
+                          const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? const Color(0xFF6C63FF)
+                            : Colors.grey[700],
+                        fontWeight: FontWeight.w600,
+                      ),
+                      side: BorderSide(
+                        color: isSelected
+                            ? const Color(0xFF6C63FF).withValues(alpha: 0.35)
+                            : Colors.grey.withValues(alpha: 0.18),
+                      ),
+                      backgroundColor: Colors.white,
+                    );
+                  }).toList(growable: false),
+                ),
+              ),
+              const SizedBox(height: 12),
+              GlassCard(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    _buildBatchOversightSummary(
+                      label: 'Visible',
+                      value: '${visibleBatches.length}',
+                    ),
+                    const SizedBox(width: 10),
+                    _buildBatchOversightSummary(
+                      label: 'Search',
+                      value: _searchController.text.isEmpty ? 'Off' : 'On',
+                    ),
+                    const SizedBox(width: 10),
+                    _buildBatchOversightSummary(
+                      label: 'Filter',
+                      value: _batchStatusFilters.firstWhere(
+                        (filter) => filter['value'] == _selectedBatchStatusFilter,
+                        orElse: () => const {'label': 'All', 'value': 'all'},
+                      )['label']!,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(
-          child: _batches.isEmpty
+          child: visibleBatches.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -873,9 +1096,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: _batches.length,
+                  itemCount: visibleBatches.length,
                   itemBuilder: (context, index) {
-                    final batch = _batches[index];
+                    final batch = visibleBatches[index];
                     return StaggeredListItem(
                       index: index,
                       child: GestureDetector(
@@ -1049,6 +1272,38 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildBatchOversightSummary({
+    required String label,
+    required String value,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF6C63FF).withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF2C3E50),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1372,6 +1627,12 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                       _buildInfoCard(),
                       const SizedBox(height: 24),
                       const SectionTitle(
+                          title: "Certificate Governance",
+                          accentColor: Color(0xFF6C63FF)),
+                      const SizedBox(height: 12),
+                      _buildCertificateGovernanceCard(),
+                      const SizedBox(height: 24),
+                      const SectionTitle(
                           title: "Transit & Timeline",
                           accentColor: Color(0xFF6C63FF)),
                       const SizedBox(height: 12),
@@ -1590,71 +1851,244 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
     );
   }
 
-  Widget _buildTimeline() {
-    final checkpoints = _batchData!['checkpoints'] as List<dynamic>? ?? [];
-    if (checkpoints.isEmpty) {
-      return GlassCard(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Center(
-              child: Text("No checkpoints recorded yet.",
-                  style: TextStyle(color: Colors.grey[500]))),
-        ),
-      );
+  List<Map<String, dynamic>> _certificateGovernanceEvents() {
+    final events = <Map<String, dynamic>>[];
+    if (_batchData == null) {
+      return events;
     }
 
+    final createdAt = (_batchData!['created_at'] ?? '').toString();
+    final validUntil = (_batchData!['certificate_valid_until'] ?? '').toString();
+    final qrGeneratedAt = (_batchData!['qr_generated_at'] ?? '').toString();
+    final qrRevokedAt = (_batchData!['qr_revoked_at'] ?? '').toString();
+
+    events.add({
+      'title': 'Certificate Snapshot Attached',
+      'detail': (_batchData!['certificate_no'] ?? 'No certificate number')
+          .toString(),
+      'date': _formatGovernanceDate(createdAt),
+      'icon': Icons.assignment_turned_in_rounded,
+      'color': const Color(0xFF6C63FF),
+    });
+
+    if (validUntil.isNotEmpty) {
+      events.add({
+        'title': _certificateStatusLabel() == 'Expired'
+            ? 'Certificate Expired'
+            : 'Certificate Valid Until',
+        'detail': validUntil,
+        'date': _formatGovernanceDate(validUntil),
+        'icon': _certificateStatusLabel() == 'Expired'
+            ? Icons.event_busy_rounded
+            : Icons.event_available_rounded,
+        'color': _certificateStatusLabel() == 'Expired'
+            ? const Color(0xFFC62828)
+            : const Color(0xFF2E7D32),
+      });
+    }
+
+    if (qrGeneratedAt.isNotEmpty) {
+      events.add({
+        'title': 'Traceability QR Activated',
+        'detail': _qrStatusLabel(),
+        'date': _formatGovernanceDate(qrGeneratedAt),
+        'icon': Icons.qr_code_2_rounded,
+        'color': const Color(0xFF1565C0),
+      });
+    }
+
+    if (qrRevokedAt.isNotEmpty) {
+      events.add({
+        'title': 'Certificate Revoked',
+        'detail': 'Batch public verification disabled',
+        'date': _formatGovernanceDate(qrRevokedAt),
+        'icon': Icons.gpp_bad_rounded,
+        'color': const Color(0xFFC62828),
+      });
+    }
+
+    return events;
+  }
+
+  Widget _buildCertificateGovernanceCard() {
+    final events = _certificateGovernanceEvents();
+
     return GlassCard(
-      padding: const EdgeInsets.all(20),
       child: Column(
-        children: List.generate(checkpoints.length, (index) {
-          final cp = checkpoints[index];
-          final isLast = index == checkpoints.length - 1;
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                children: [
-                  Container(
-                    width: 14,
-                    height: 14,
-                    decoration: const BoxDecoration(
-                        color: Color(0xFF6C63FF), shape: BoxShape.circle),
-                  ),
-                  if (!isLast)
-                    Container(
-                        width: 2,
-                        height: 50,
-                        color: const Color(0xFF6C63FF).withValues(alpha: 0.3)),
-                ],
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        children: List.generate(events.length, (index) {
+          final event = events[index];
+          final isLast = index == events.length - 1;
+          return Padding(
+            padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
                   children: [
-                    Text(cp['location_name'],
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(
-                        "${cp['action_type'].toString().toUpperCase()} • Temp: ${cp['temperature']}°C",
-                        style:
-                            TextStyle(color: Colors.grey[600], fontSize: 12)),
-                    if (cp['notes'] != null) ...[
-                      const SizedBox(height: 4),
-                      Text('"${cp['notes']}"',
-                          style: TextStyle(
-                              color: Colors.grey[500],
-                              fontSize: 12,
-                              fontStyle: FontStyle.italic)),
-                    ],
-                    const SizedBox(height: 16),
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: (event['color'] as Color).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        event['icon'] as IconData,
+                        color: event['color'] as Color,
+                      ),
+                    ),
+                    if (!isLast)
+                      Container(
+                        width: 2,
+                        height: 34,
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        color:
+                            (event['color'] as Color).withValues(alpha: 0.20),
+                      ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        event['title'].toString(),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF2C3E50),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        event['detail'].toString(),
+                        style: TextStyle(
+                          color: Colors.grey[700],
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        event['date'].toString(),
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           );
         }),
       ),
+    );
+  }
+
+  String _formatGovernanceDate(String raw) {
+    if (raw.isEmpty) {
+      return 'Unknown date';
+    }
+
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) {
+      return raw;
+    }
+
+    final local = parsed.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    return '${local.year}-$month-$day';
+  }
+
+  Widget _buildTimeline() {
+    final checkpoints = _batchData!['checkpoints'] as List<dynamic>? ?? [];
+    final routePoints = BatchRouteMapper.toMapPoints(checkpoints);
+
+    if (checkpoints.isEmpty) {
+      return Column(
+        children: [
+          RouteMapCard(
+            title: 'Transit Route',
+            points: routePoints,
+            totalCheckpoints: checkpoints.length,
+          ),
+          GlassCard(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Center(
+                  child: Text("No checkpoints recorded yet.",
+                      style: TextStyle(color: Colors.grey[500]))),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        RouteMapCard(
+          title: 'Transit Route',
+          points: routePoints,
+          totalCheckpoints: checkpoints.length,
+        ),
+        GlassCard(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: List.generate(checkpoints.length, (index) {
+              final cp = checkpoints[index];
+              final isLast = index == checkpoints.length - 1;
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: const BoxDecoration(
+                            color: Color(0xFF6C63FF), shape: BoxShape.circle),
+                      ),
+                      if (!isLast)
+                        Container(
+                            width: 2,
+                            height: 50,
+                            color:
+                                const Color(0xFF6C63FF).withValues(alpha: 0.3)),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(cp['location_name'],
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(
+                            "${cp['action_type'].toString().toUpperCase()} • Temp: ${cp['temperature']}°C",
+                            style: TextStyle(
+                                color: Colors.grey[600], fontSize: 12)),
+                        if (cp['notes'] != null) ...[
+                          const SizedBox(height: 4),
+                          Text('"${cp['notes']}"',
+                              style: TextStyle(
+                                  color: Colors.grey[500],
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic)),
+                        ],
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ),
+      ],
     );
   }
 }

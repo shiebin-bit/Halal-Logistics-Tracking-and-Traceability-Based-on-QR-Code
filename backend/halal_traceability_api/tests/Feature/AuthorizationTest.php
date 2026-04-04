@@ -169,6 +169,91 @@ class AuthorizationTest extends TestCase
             ->assertJsonPath('pending_users', 1);
     }
 
+    public function test_admin_stats_include_reporting_breakdowns(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'phone_number' => '+60118880011',
+            'is_approved' => true,
+            'registration_status' => 'approved',
+        ]);
+
+        $processor = User::factory()->create([
+            'role' => 'processor',
+            'phone_number' => '+60118880012',
+            'is_approved' => true,
+            'registration_status' => 'approved',
+        ]);
+
+        Batch::create([
+            'batch_id' => 'B-2026-REPORT-001',
+            'processor_id' => $processor->id,
+            'current_holder_id' => $processor->id,
+            'product_type' => 'Whole Chicken',
+            'weight' => '120kg',
+            'slaughter_date' => now()->toDateString(),
+            'processing_date' => now()->toDateString(),
+            'origin_farm' => 'Farm QA',
+            'processing_factory' => 'Plant QA',
+            'current_location' => 'Shah Alam',
+            'certificate_authority' => 'JAKIM',
+            'certificate_no' => 'CERT-REPORT-001',
+            'certificate_valid_until' => now()->addDays(7)->toDateString(),
+            'certificate_document_path' => 'batch-certificates/report-001.pdf',
+            'status' => 'In Transit',
+        ]);
+
+        Batch::create([
+            'batch_id' => 'B-2026-REPORT-002',
+            'processor_id' => $processor->id,
+            'current_holder_id' => $processor->id,
+            'product_type' => 'Chicken Wings',
+            'weight' => '80kg',
+            'slaughter_date' => now()->toDateString(),
+            'processing_date' => now()->toDateString(),
+            'origin_farm' => 'Farm QA',
+            'processing_factory' => 'Plant QA',
+            'current_location' => 'Shah Alam',
+            'certificate_authority' => 'JAKIM',
+            'certificate_no' => 'CERT-REPORT-002',
+            'certificate_valid_until' => now()->subDay()->toDateString(),
+            'certificate_document_path' => 'batch-certificates/report-002.pdf',
+            'status' => 'Delivered',
+        ]);
+
+        Batch::create([
+            'batch_id' => 'B-2026-REPORT-003',
+            'processor_id' => $processor->id,
+            'current_holder_id' => $processor->id,
+            'product_type' => 'Chicken Breast',
+            'weight' => '60kg',
+            'slaughter_date' => now()->toDateString(),
+            'processing_date' => now()->toDateString(),
+            'origin_farm' => 'Farm QA',
+            'processing_factory' => 'Plant QA',
+            'current_location' => 'Shah Alam',
+            'certificate_authority' => 'JAKIM',
+            'certificate_no' => 'CERT-REPORT-003',
+            'certificate_valid_until' => now()->addMonth()->toDateString(),
+            'certificate_document_path' => 'batch-certificates/report-003.pdf',
+            'qr_revoked_at' => now(),
+            'status' => 'Invalid - Certificate Revoked',
+            'halal_status' => 'breached',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/stats')
+            ->assertOk()
+            ->assertJsonPath('status_breakdown.in_transit', 1)
+            ->assertJsonPath('status_breakdown.delivered', 1)
+            ->assertJsonPath('status_breakdown.revoked', 1)
+            ->assertJsonPath('certificate_summary.active', 1)
+            ->assertJsonPath('certificate_summary.expiring_soon', 1)
+            ->assertJsonPath('certificate_summary.expired', 1)
+            ->assertJsonPath('certificate_summary.revoked', 1);
+    }
+
     public function test_processor_can_create_batch_with_batch_level_certificate_document(): void
     {
         Storage::fake('public');
@@ -248,6 +333,60 @@ class AuthorizationTest extends TestCase
             'longitude' => 101.654321,
             'signature' => 'base64-demo',
         ])->assertForbidden();
+    }
+
+    public function test_logistics_assigned_routes_include_batch_id_for_detail_navigation(): void
+    {
+        $logistics = User::factory()->create([
+            'role' => 'logistics',
+            'phone_number' => '+60113334444',
+            'is_approved' => true,
+        ]);
+
+        $processor = User::factory()->create([
+            'role' => 'processor',
+            'phone_number' => '+60113334445',
+            'is_approved' => true,
+        ]);
+
+        $batch = Batch::create([
+            'batch_id' => 'B-2026-LOG-ROUTE-001',
+            'processor_id' => $processor->id,
+            'current_holder_id' => $logistics->id,
+            'driver_id' => $logistics->id,
+            'product_type' => 'Whole Chicken',
+            'weight' => '120kg',
+            'slaughter_date' => '2026-03-30',
+            'processing_date' => '2026-03-30',
+            'origin_farm' => 'Farm QA',
+            'processing_factory' => 'Plant QA',
+            'current_location' => 'Shah Alam',
+            'destination_address' => 'Fresh Mart KL',
+            'estimated_arrival' => now()->addHour(),
+            'truck_plate' => 'JPG 8832',
+            'status' => 'In Transit',
+        ]);
+
+        Checkpoint::create([
+            'batch_id' => $batch->id,
+            'user_id' => $logistics->id,
+            'location_name' => 'Checkpoint Alpha',
+            'latitude' => 3.139,
+            'longitude' => 101.6869,
+            'temperature' => -18.5,
+            'action_type' => 'transit_update',
+            'notes' => 'Transit checkpoint recorded.',
+        ]);
+
+        Sanctum::actingAs($logistics);
+
+        $this->getJson('/api/logistics/routes')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $batch->id)
+            ->assertJsonPath('data.0.batch_id_raw', 'B-2026-LOG-ROUTE-001')
+            ->assertJsonPath('data.0.truckId', 'JPG 8832')
+            ->assertJsonPath('data.0.destination', 'Fresh Mart KL')
+            ->assertJsonPath('data.0.temp', '-18.5°C');
     }
 
     public function test_rejected_user_cannot_log_in(): void

@@ -83,6 +83,8 @@ class ExampleTest extends TestCase
             'batch_id' => $batch->id,
             'user_id' => $processor->id,
             'location_name' => 'Shah Alam',
+            'latitude' => 3.0738,
+            'longitude' => 101.5183,
             'temperature' => 2,
             'action_type' => 'transit_update',
             'notes' => 'Internal note that must not leak',
@@ -95,6 +97,8 @@ class ExampleTest extends TestCase
             ->assertJsonMissingPath('batch.checkpoints.0.actor_name')
             ->assertJsonMissingPath('batch.checkpoints.0.actor_role')
             ->assertJsonMissingPath('batch.checkpoints.0.notes')
+            ->assertJsonPath('batch.checkpoints.0.latitude', 3.0738)
+            ->assertJsonPath('batch.checkpoints.0.longitude', 101.5183)
             ->assertJsonPath('batch.checkpoints.0.summary', 'Transit update');
     }
 

@@ -20,6 +20,9 @@ class AdminController extends Controller
     /** Get dashboard statistics (total batches, pending users, active incidents). */
     public function getStats(Request $request)
     {
+        $today = now()->startOfDay();
+        $expiringSoon = now()->addDays(14)->endOfDay();
+
         return response()->json([
             'total_batches' => Batch::count(),
             'pending_users' => User::query()
@@ -31,7 +34,37 @@ class AdminController extends Controller
                         });
                 })
                 ->count(),
-            'active_issues' => Incident::where('status', '!=', 'Resolved')->count()
+            'active_issues' => Incident::where('status', '!=', 'Resolved')->count(),
+            'status_breakdown' => [
+                'ready_for_qr' => Batch::where('status', 'Ready for QR Generation')->count(),
+                'qr_generated' => Batch::where('status', 'QR Generated')->count(),
+                'in_transit' => Batch::where('status', 'In Transit')->count(),
+                'delivered' => Batch::where('status', 'Delivered')->count(),
+                'rejected' => Batch::where('status', 'Rejected')->count(),
+                'revoked' => Batch::where('status', 'Invalid - Certificate Revoked')->count(),
+            ],
+            'certificate_summary' => [
+                'active' => Batch::query()
+                    ->whereNotNull('certificate_no')
+                    ->whereNotNull('certificate_authority')
+                    ->whereNotNull('certificate_document_path')
+                    ->whereDate('certificate_valid_until', '>=', $today)
+                    ->whereNull('qr_revoked_at')
+                    ->count(),
+                'expiring_soon' => Batch::query()
+                    ->whereNotNull('certificate_no')
+                    ->whereNotNull('certificate_valid_until')
+                    ->whereBetween('certificate_valid_until', [$today, $expiringSoon])
+                    ->whereNull('qr_revoked_at')
+                    ->count(),
+                'expired' => Batch::query()
+                    ->whereNotNull('certificate_valid_until')
+                    ->whereDate('certificate_valid_until', '<', $today)
+                    ->count(),
+                'revoked' => Batch::query()
+                    ->whereNotNull('qr_revoked_at')
+                    ->count(),
+            ],
         ]);
     }
 

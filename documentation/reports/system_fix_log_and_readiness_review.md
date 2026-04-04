@@ -569,9 +569,9 @@ The project is much more stable now, but a few things are still worth noting:
 
 The password reset flow is implemented, but real mail delivery still depends on production SMTP credentials and domain verification.
 
-### 2. GPS is real, but map visualization is still separate
+### 2. Route map is now implemented, but continuous live tracking is still out of scope
 
-The app records real coordinates, but it does not yet provide a map-based route visualization. Current traceability is event/timeline-based rather than map-based.
+The app now provides a checkpoint-based route map using recorded shipment coordinates, but it does not attempt continuous live GPS streaming or auto-refresh tracking.
 
 ## Readiness Conclusion
 

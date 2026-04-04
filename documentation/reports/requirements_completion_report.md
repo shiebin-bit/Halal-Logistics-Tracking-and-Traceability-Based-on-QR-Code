@@ -1,6 +1,6 @@
 # HalalTrack Requirements Completion Report
 
-Date: 2026-04-02
+Date: 2026-04-04
 
 ## Summary
 
@@ -12,6 +12,8 @@ Current status:
 - The system now supports role-based dashboards for `admin`, `processor`, `logistics`, `retailer`, and public `consumer` traceability.
 - Backend logic, database schema, and key frontend flows were updated to align with the design document.
 - Backend regression tests are passing.
+- Frontend verification now passes with `flutter analyze` and `flutter test`.
+- Checkpoint-based route maps are now available in consumer, admin, and logistics detail flows.
 
 Overall assessment:
 
@@ -160,6 +162,32 @@ Implemented in:
 - `frontend/halal_traceability_app/lib/screens/dashboards/consumer_dashboard.dart`
 - `frontend/halal_traceability_app/lib/screens/dashboards/admin_dashboard.dart`
 
+### 10. Checkpoint-Based Route Map Visualization
+
+Completed:
+
+- Consumer batch detail now shows a checkpoint-based shipment route map.
+- Admin batch detail reuses the same route map component.
+- Logistics assigned shipments can open a route detail view with the same map visualization.
+- The map uses real checkpoint coordinates on OpenStreetMap tiles.
+- The timeline remains visible below the map for event explanation.
+
+Scope note:
+
+- This is a geographic route visualization based on recorded checkpoints.
+- It is not continuous live GPS streaming.
+
+Implemented in:
+
+- `backend/halal_traceability_api/app/Http/Controllers/Api/BatchController.php`
+- `backend/halal_traceability_api/app/Http/Controllers/Api/LogisticsController.php`
+- `frontend/halal_traceability_app/lib/models/checkpoint_map_point.dart`
+- `frontend/halal_traceability_app/lib/services/batch_route_mapper.dart`
+- `frontend/halal_traceability_app/lib/widgets/route_map_card.dart`
+- `frontend/halal_traceability_app/lib/screens/dashboards/consumer_dashboard.dart`
+- `frontend/halal_traceability_app/lib/screens/dashboards/admin_dashboard.dart`
+- `frontend/halal_traceability_app/lib/screens/dashboards/logistics_dashboard.dart`
+
 ## Important Demo Notes
 
 To support smooth in-class demo and evaluation, the system currently includes controlled bypass behavior:
@@ -186,6 +214,7 @@ Implemented in:
 Completed:
 
 - Laravel backend tests were updated and executed successfully.
+- Frontend validation now completes successfully.
 - Regression coverage now includes:
   - pending user filtering
   - batch-level certificate creation
@@ -193,11 +222,19 @@ Completed:
   - demo account login bypass
   - revoke certificate without partial failure
   - public batch sanitization
+  - logistics route summaries exposing batch detail IDs for route navigation
 
 Latest backend result:
 
 - `php artisan test`
-- `16 passed`
+- `18 passed`
+
+Latest frontend result:
+
+- `flutter analyze`
+- `No issues found`
+- `flutter test`
+- `4 passed`
 
 Main test file:
 
@@ -213,11 +250,11 @@ These do not block core demo functionality, but should be noted honestly in subm
 - Real mail sending is not fully deployed because no SMTP/mail server is configured.
 - Local development currently relies on debug verification code fallback.
 
-### 2. Flutter Tooling Verification Is Incomplete
+### 2. Real-Time Streaming Map Tracking Is Not Implemented
 
-- Frontend features were manually validated during integration work.
-- Full `flutter analyze` and `flutter test` verification could not be consistently completed in the current environment due toolchain responsiveness issues.
-- This is a tooling-validation gap, not a confirmed functional blocker.
+- The current route map is based on submitted checkpoint coordinates.
+- This is sufficient for demo and traceability use.
+- Continuous live GPS streaming, background tracking, and auto-refresh remain out of scope for the current FYP version.
 
 ### 3. Some Optional Enhancements Remain Partial
 
@@ -237,9 +274,10 @@ Practical conclusion:
 - The main mandatory requirements are implemented.
 - The system is usable end-to-end across all required roles.
 - Public consumer traceability now behaves in a safer and more realistic way.
-- The remaining gaps are mostly production-hardening and tooling-verification items rather than missing core assignment functionality.
+- The remaining gaps are mostly production-hardening and optional enhancement items rather than missing core assignment functionality.
 
 Recommended presentation wording:
 
 - “The mandatory system requirements are implemented and working. Email verification is implemented with local debug fallback because a real mail server is not configured in the current demo environment.”
 - “Several demo accounts were kept accessible for faster in-class testing, while the normal registration flow still follows verification and approval rules.”
+- “The shipment map is implemented as a checkpoint-based geographic route view rather than continuous live GPS streaming, which is an intentional scope decision for the FYP project.”

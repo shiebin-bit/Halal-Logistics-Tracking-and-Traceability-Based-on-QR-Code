@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart' as latlng;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:signature/signature.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,9 +11,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../config.dart';
 import '../../services/auth_session_service.dart';
+import '../../services/batch_route_mapper.dart';
 import '../../services/location_service.dart';
 import '../../services/profile_image_service.dart';
 import '../../services/qr_payload_service.dart';
+import '../../widgets/route_map_card.dart';
 import 'widgets/dashboard_widgets.dart';
 
 /// Logistics workspace for route tracking, checkpoint capture, and incidents.
@@ -151,6 +154,33 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
     } catch (e) {
       setState(() => _isLoadingRoutes = false);
     }
+  }
+
+  Future<void> _openRouteDetails(Map<String, dynamic> route) async {
+    final rawBatchId = route['id'];
+    final batchId = rawBatchId is int
+        ? rawBatchId
+        : int.tryParse(rawBatchId?.toString() ?? '');
+
+    if (batchId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('This shipment preview is not linked to a batch detail yet.'),
+        ),
+      );
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LogisticsBatchDetailScreen(
+          batchId: batchId,
+          routeSummary: route,
+        ),
+      ),
+    );
   }
 
   Future<void> _submitCheckpoint() async {
@@ -765,84 +795,124 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
             physics: const NeverScrollableScrollPhysics(),
             itemCount: _assignedShipments.length,
             itemBuilder: (context, index) {
-              final route = _assignedShipments[index];
+              final route =
+                  (_assignedShipments[index] as Map).cast<String, dynamic>();
               final isOnRoute = route['status'] == "On Route";
               return StaggeredListItem(
                 index: 3 + index,
-                child: GlassCard(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(children: [
+                child: GestureDetector(
+                  onTap: () => _openRouteDetails(route),
+                  child: GlassCard(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1565C0)
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.local_shipping_rounded,
+                                    color: Color(0xFF1565C0), size: 22),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(route['truckId'],
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700, fontSize: 16)),
+                            ]),
                             Container(
-                              padding: const EdgeInsets.all(10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1565C0)
-                                    .withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
+                                gradient: LinearGradient(
+                                  colors: isOnRoute
+                                      ? [
+                                          const Color(0xFF4CAF50),
+                                          const Color(0xFF66BB6A)
+                                        ]
+                                      : [
+                                          const Color(0xFFFF9800),
+                                          const Color(0xFFFFA726)
+                                        ],
+                                ),
+                                borderRadius: BorderRadius.circular(20),
                               ),
-                              child: const Icon(Icons.local_shipping_rounded,
-                                  color: Color(0xFF1565C0), size: 22),
+                              child: Text(route['status'],
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11)),
                             ),
-                            const SizedBox(width: 12),
-                            Text(route['truckId'],
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700, fontSize: 16)),
-                          ]),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: isOnRoute
-                                    ? [
-                                        const Color(0xFF4CAF50),
-                                        const Color(0xFF66BB6A)
-                                      ]
-                                    : [
-                                        const Color(0xFFFF9800),
-                                        const Color(0xFFFFA726)
-                                      ],
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(route['status'],
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 11)),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(children: [
+                          Icon(Icons.location_on_rounded,
+                              size: 16, color: Colors.grey[400]),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text("Dest: ${route['destination']}",
+                                style: TextStyle(color: Colors.grey[600])),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(children: [
-                        Icon(Icons.location_on_rounded,
-                            size: 16, color: Colors.grey[400]),
-                        const SizedBox(width: 6),
-                        Text("Dest: ${route['destination']}",
-                            style: TextStyle(color: Colors.grey[600]))
-                      ]),
-                      const SizedBox(height: 6),
-                      Row(children: [
-                        Icon(Icons.access_time_rounded,
-                            size: 16, color: Colors.grey[400]),
-                        const SizedBox(width: 6),
-                        Text("ETA: ${route['eta']} • Temp: ${route['temp']}",
-                            style: TextStyle(color: Colors.grey[600]))
-                      ]),
-                      const SizedBox(height: 16),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                            value: (route['progress'] as num).toDouble(),
-                            backgroundColor: Colors.grey[100],
-                            color: const Color(0xFF1565C0),
-                            minHeight: 8),
-                      ),
-                    ],
+                        ]),
+                        const SizedBox(height: 6),
+                        Row(children: [
+                          Icon(Icons.access_time_rounded,
+                              size: 16, color: Colors.grey[400]),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                                "ETA: ${route['eta']} • Temp: ${route['temp']}",
+                                style: TextStyle(color: Colors.grey[600])),
+                          ),
+                        ]),
+                        const SizedBox(height: 16),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                              value: (route['progress'] as num).toDouble(),
+                              backgroundColor: Colors.grey[100],
+                              color: const Color(0xFF1565C0),
+                              minHeight: 8),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              route['batch_id_raw']?.toString() ?? 'Batch detail',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1565C0),
+                              ),
+                            ),
+                            const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Open route detail',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF1565C0),
+                                  ),
+                                ),
+                                SizedBox(width: 6),
+                                Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 18,
+                                  color: Color(0xFF1565C0),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -1117,6 +1187,848 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
         ),
       ),
     );
+  }
+}
+
+class LogisticsBatchDetailScreen extends StatefulWidget {
+  const LogisticsBatchDetailScreen({
+    super.key,
+    required this.batchId,
+    required this.routeSummary,
+  });
+
+  final int batchId;
+  final Map<String, dynamic> routeSummary;
+
+  @override
+  State<LogisticsBatchDetailScreen> createState() =>
+      _LogisticsBatchDetailScreenState();
+}
+
+class _LogisticsBatchDetailScreenState extends State<LogisticsBatchDetailScreen> {
+  Map<String, dynamic>? _batchData;
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBatchDetail();
+  }
+
+  Future<void> _fetchBatchDetail() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final token = await AuthSessionService.getToken();
+      final response = await http.get(
+        Uri.parse('$baseUrl/batches/${widget.batchId}'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        setState(() {
+          _batchData = (data['batch'] as Map).cast<String, dynamic>();
+          _isLoading = false;
+        });
+        return;
+      }
+
+      String message = 'Unable to load this batch route right now.';
+      try {
+        final body = jsonDecode(response.body);
+        if (body is Map && body['message'] != null) {
+          message = body['message'].toString();
+        }
+      } catch (_) {}
+
+      setState(() {
+        _errorMessage = message;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Connection error while loading route detail.';
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title =
+        widget.routeSummary['batch_id_raw']?.toString() ?? 'Route detail';
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: GradientAppBar(
+        title: title,
+        gradientColors: const [
+          Color(0xFF0D47A1),
+          Color(0xFF1565C0),
+          Color(0xFF42A5F5),
+        ],
+        actions: [
+          IconButton(
+            onPressed: _fetchBatchDetail,
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: GradientBackground(
+        colors: GradientBackground.logistics,
+        child: _buildBody(),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: GlassCard(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline_rounded,
+                      color: Colors.redAccent, size: 34),
+                  const SizedBox(height: 12),
+                  Text(
+                    _errorMessage!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: _fetchBatchDetail,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final batch = _batchData ?? const <String, dynamic>{};
+    final checkpoints = (batch['checkpoints'] as List?) ?? const [];
+    final routePoints = BatchRouteMapper.toMapPoints(checkpoints);
+    final alertPoints =
+        routePoints.where((point) => point.isAlert).toList(growable: false);
+    final routeDistanceKm = _routeDistanceKm(routePoints);
+    final latestCheckpoint = checkpoints.isNotEmpty
+        ? (checkpoints.last as Map).cast<String, dynamic>()
+        : null;
+    final processor =
+        (batch['processor'] as Map?)?.cast<String, dynamic>() ??
+            const <String, dynamic>{};
+    final currentHolder =
+        (batch['current_holder'] as Map?)?.cast<String, dynamic>() ??
+            const <String, dynamic>{};
+
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        _buildSummaryCard(batch, latestCheckpoint, processor, currentHolder),
+        const SizedBox(height: 18),
+        RouteMapCard(
+          title: 'Transit Route',
+          points: routePoints,
+          totalCheckpoints: checkpoints.length,
+        ),
+        const SizedBox(height: 16),
+        _buildRouteInsightsCard(
+          checkpoints: checkpoints,
+          routePoints: routePoints,
+          alertPoints: alertPoints,
+          routeDistanceKm: routeDistanceKm,
+        ),
+        if (alertPoints.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _buildAlertSummaryCard(alertPoints),
+        ],
+        const SizedBox(height: 20),
+        const SectionTitle(
+          title: 'Checkpoint Timeline',
+          accentColor: Color(0xFF1565C0),
+        ),
+        const SizedBox(height: 12),
+        if (checkpoints.isEmpty)
+          GlassCard(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text(
+                'No checkpoints have been recorded for this shipment yet.',
+                style: TextStyle(color: Colors.grey[700]),
+              ),
+            ),
+          )
+        else
+          ...checkpoints.asMap().entries.map((entry) {
+            final checkpoint = (entry.value as Map).cast<String, dynamic>();
+            final isLast = entry.key == checkpoints.length - 1;
+            return Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+              child: _buildCheckpointTile(checkpoint),
+            );
+          }),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildSummaryCard(
+    Map<String, dynamic> batch,
+    Map<String, dynamic>? latestCheckpoint,
+    Map<String, dynamic> processor,
+    Map<String, dynamic> currentHolder,
+  ) {
+    final status = batch['status']?.toString() ??
+        widget.routeSummary['status']?.toString() ??
+        'Unknown';
+    final batchLabel = batch['batch_id']?.toString() ??
+        widget.routeSummary['batch_id_raw']?.toString() ??
+        'Batch';
+    final destination = batch['destination_address']?.toString() ??
+        widget.routeSummary['destination']?.toString() ??
+        'Destination pending';
+    final eta = widget.routeSummary['eta']?.toString() ?? 'TBD';
+    final latestTemp = latestCheckpoint?['temperature']?.toString() ??
+        widget.routeSummary['temp']?.toString() ??
+        'N/A';
+    final holderName = currentHolder['name']?.toString() ??
+        widget.routeSummary['truckId']?.toString() ??
+        'Unassigned';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0D47A1), Color(0xFF1565C0), Color(0xFF42A5F5)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1565C0).withValues(alpha: 0.24),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      batchLabel,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      batch['product_type']?.toString() ?? 'Shipment in transit',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  status,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _buildInfoChip(Icons.location_on_rounded, destination),
+              _buildInfoChip(Icons.access_time_rounded, 'ETA $eta'),
+              _buildInfoChip(Icons.thermostat_rounded, 'Latest temp $latestTemp'),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryMetric(
+                  label: 'Current holder',
+                  value: holderName,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildSummaryMetric(
+                  label: 'Processor',
+                  value: processor['name']?.toString() ?? 'Unavailable',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildSummaryMetric(
+            label: 'Current location',
+            value: batch['current_location']?.toString() ?? 'Unavailable',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryMetric({
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.74),
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRouteInsightsCard({
+    required List<dynamic> checkpoints,
+    required List<dynamic> routePoints,
+    required List<dynamic> alertPoints,
+    required double routeDistanceKm,
+  }) {
+    final gpsCoverage = checkpoints.isEmpty
+        ? 0
+        : ((routePoints.length / checkpoints.length) * 100).round();
+
+    return GlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Route Intelligence',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0D47A1),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'A quick snapshot of route coverage, distance, and issues worth checking.',
+              style: TextStyle(color: Colors.grey[600], height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _buildInsightMetric(
+                  icon: Icons.route_rounded,
+                  label: 'Approx route',
+                  value: routeDistanceKm == 0
+                      ? 'Pending'
+                      : '${routeDistanceKm.toStringAsFixed(1)} km',
+                ),
+                _buildInsightMetric(
+                  icon: Icons.gps_fixed_rounded,
+                  label: 'GPS coverage',
+                  value: '$gpsCoverage%',
+                ),
+                _buildInsightMetric(
+                  icon: Icons.timeline_rounded,
+                  label: 'Checkpoints',
+                  value: '${routePoints.length}/${checkpoints.length}',
+                ),
+                _buildInsightMetric(
+                  icon: Icons.warning_amber_rounded,
+                  label: 'Alerts',
+                  value: '${alertPoints.length}',
+                  highlighted: alertPoints.isNotEmpty,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlertSummaryCard(List<dynamic> alertPoints) {
+    return GlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.redAccent,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Alert Checkpoints',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF37474F),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...alertPoints.take(3).map((point) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _buildAlertRow(point as dynamic),
+                )),
+            if (alertPoints.length > 3)
+              Text(
+                '+${alertPoints.length - 3} more alert checkpoint(s) in the timeline below.',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlertRow(dynamic point) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.place_rounded, color: Colors.redAccent, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  point.locationName.toString(),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  point.summary.toString(),
+                  style: TextStyle(color: Colors.grey[700], height: 1.35),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  point.timestampLabel.toString(),
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInsightMetric({
+    required IconData icon,
+    required String label,
+    required String value,
+    bool highlighted = false,
+  }) {
+    return Container(
+      width: 148,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: highlighted
+            ? Colors.red.withValues(alpha: 0.08)
+            : const Color(0xFF1565C0).withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: highlighted
+              ? Colors.red.withValues(alpha: 0.15)
+              : const Color(0xFF1565C0).withValues(alpha: 0.10),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: highlighted
+                  ? Colors.red.withValues(alpha: 0.10)
+                  : const Color(0xFF1565C0).withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: highlighted ? Colors.redAccent : const Color(0xFF1565C0),
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF37474F),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _routeDistanceKm(List<dynamic> routePoints) {
+    if (routePoints.length < 2) {
+      return 0;
+    }
+
+    const distance = latlng.Distance();
+    var meters = 0.0;
+
+    for (var i = 1; i < routePoints.length; i++) {
+      final previous = routePoints[i - 1];
+      final current = routePoints[i];
+      meters += distance(
+        latlng.LatLng(previous.latitude as double, previous.longitude as double),
+        latlng.LatLng(current.latitude as double, current.longitude as double),
+      );
+    }
+
+    return meters / 1000;
+  }
+
+  Widget _buildCheckpointTile(Map<String, dynamic> checkpoint) {
+    final actionType = checkpoint['action_type']?.toString() ?? 'transit_update';
+    final isAlert = _isCheckpointAlert(checkpoint);
+
+    return GlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: isAlert
+                    ? Colors.red.withValues(alpha: 0.12)
+                    : const Color(0xFF1565C0).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                _timelineIconFor(actionType),
+                color: isAlert ? Colors.redAccent : const Color(0xFF1565C0),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _timelineTitleFor(checkpoint),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      if (isAlert)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'Alert',
+                            style: TextStyle(
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _timelineDescriptionFor(checkpoint),
+                    style: TextStyle(
+                      color: Colors.grey[700],
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildCheckpointChip(
+                        Icons.place_rounded,
+                        checkpoint['location_name']?.toString() ??
+                            'Unknown location',
+                      ),
+                      _buildCheckpointChip(
+                        Icons.schedule_rounded,
+                        _formatCheckpointDate(checkpoint['created_at']),
+                      ),
+                      if (checkpoint['temperature'] != null)
+                        _buildCheckpointChip(
+                          Icons.thermostat_rounded,
+                          '${checkpoint['temperature']}°C',
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCheckpointChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1565C0).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: const Color(0xFF1565C0)),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF0D47A1),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isCheckpointAlert(Map<String, dynamic> checkpoint) {
+    if (checkpoint['alert'] == true) {
+      return true;
+    }
+
+    final actionType = checkpoint['action_type']?.toString() ?? '';
+    if (actionType == 'incident') {
+      return true;
+    }
+
+    final temperature =
+        double.tryParse(checkpoint['temperature']?.toString() ?? '');
+    return temperature != null && (temperature < 0 || temperature > 4);
+  }
+
+  IconData _timelineIconFor(String actionType) {
+    switch (actionType) {
+      case 'arrival':
+        return Icons.inventory_2_rounded;
+      case 'handover':
+        return Icons.swap_horiz_rounded;
+      case 'incident':
+        return Icons.warning_amber_rounded;
+      case 'qr_generated':
+        return Icons.qr_code_2_rounded;
+      default:
+        return Icons.local_shipping_rounded;
+    }
+  }
+
+  String _timelineTitleFor(Map<String, dynamic> checkpoint) {
+    final actionType = checkpoint['action_type']?.toString() ?? '';
+    switch (actionType) {
+      case 'arrival':
+        return 'Arrival Recorded';
+      case 'handover':
+        return 'Custody Handover';
+      case 'incident':
+        return 'Incident Reported';
+      case 'qr_generated':
+        return 'QR Activated';
+      default:
+        return 'Transit Update';
+    }
+  }
+
+  String _timelineDescriptionFor(Map<String, dynamic> checkpoint) {
+    final notes = checkpoint['notes']?.toString().trim();
+    if (notes != null && notes.isNotEmpty) {
+      return notes;
+    }
+
+    return 'Checkpoint captured at ${checkpoint['location_name'] ?? 'the current location'}.';
+  }
+
+  String _formatCheckpointDate(dynamic raw) {
+    final rawText = raw?.toString();
+    if (rawText == null || rawText.isEmpty) {
+      return 'Unknown time';
+    }
+
+    final parsed = DateTime.tryParse(rawText);
+    if (parsed == null) {
+      return rawText;
+    }
+
+    final local = parsed.toLocal();
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final period = local.hour >= 12 ? 'PM' : 'AM';
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return '${local.day.toString().padLeft(2, '0')} ${months[local.month - 1]} ${local.year}, $hour:$minute $period';
   }
 }
 

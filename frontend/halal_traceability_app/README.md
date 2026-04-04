@@ -12,6 +12,7 @@ This app is used by `admin`, `processor`, `logistics`, `retailer`, and public `c
 - logistics QR scan and checkpoint submission
 - retailer shipment acceptance workflow
 - public consumer traceability lookup
+- checkpoint-based shipment route maps for consumer, admin, and logistics detail views
 - profile image and document-related UI flows
 
 ## Stack
@@ -22,6 +23,8 @@ This app is used by `admin`, `processor`, `logistics`, `retailer`, and public `c
 - `mobile_scanner`
 - `geolocator`
 - `flutter_secure_storage`
+- `flutter_map`
+- `latlong2`
 
 ## Run Locally
 
@@ -81,6 +84,8 @@ lib/
 
 - This app expects the backend API to be reachable and seeded for local demo flows.
 - Public consumer traceability does not require login.
+- The current shipment map uses OpenStreetMap tiles and stored checkpoint coordinates.
+- The current map is not continuous background GPS streaming; it updates when checkpoints are recorded.
 - Production builds should point to the real backend origin with `--dart-define=API_ORIGIN=...`.
 
 For broader project context, see the root [README](../../README.md).

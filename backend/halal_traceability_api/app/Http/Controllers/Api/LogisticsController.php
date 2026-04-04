@@ -34,6 +34,7 @@ class LogisticsController extends Controller
             };
 
             return [
+                'id' => $batch->id,
                 'batch_id_raw' => $batch->batch_id,
                 'truckId' => $batch->truck_plate ?? 'Assigning...',
                 'destination' => $batch->destination_address ?? 'See manifest',

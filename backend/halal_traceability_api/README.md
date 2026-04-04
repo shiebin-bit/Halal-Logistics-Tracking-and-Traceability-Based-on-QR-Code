@@ -10,6 +10,7 @@ This backend handles authentication, role authorization, batch lifecycle managem
 - role and ownership authorization
 - processor batch creation and certificate handling
 - logistics checkpoint and incident APIs
+- logistics assigned-route summaries and batch-detail data for route maps
 - retailer acceptance workflow
 - admin approval and governance endpoints
 - public batch listing and detail endpoints
@@ -94,6 +95,8 @@ Production deployment assets live at the repository level:
 ## Notes
 
 - Local testing uses SQLite in-memory, not MariaDB.
+- Core API flows for the FYP demo are implemented and covered by passing backend tests.
+- Production email, VPS runtime secrets, and external deployment validation remain deployment tasks rather than missing API business logic.
 - Production secrets should stay in VPS environment files or GitHub secrets, never in the repository.
 - This folder contains the application source and image definition; deployment orchestration is kept outside this folder on purpose.
 
