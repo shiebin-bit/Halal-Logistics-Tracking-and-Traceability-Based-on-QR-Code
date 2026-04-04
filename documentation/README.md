@@ -15,6 +15,7 @@ This directory is organized by document type so reports, deployment notes, propo
 
 ## Key Documents
 
+- [Enterprise System Explanation Report](reports/enterprise_system_explanation_report.md)
 - [Current Improvement Roadmap](reports/current_improvement_roadmap.md)
 - [Deployment Guide](deployment/vps_docker_nginx_github_actions_deployment_guide.md)
 - [Requirements Completion Report](reports/requirements_completion_report.md)

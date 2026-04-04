@@ -253,6 +253,7 @@ Notes:
 
 ## Documentation
 
+- [Enterprise System Explanation Report](documentation/reports/enterprise_system_explanation_report.md)
 - [Documentation Index](documentation/README.md)
 - [Deployment Guide](documentation/deployment/vps_docker_nginx_github_actions_deployment_guide.md)
 - [Requirements Completion Report](documentation/reports/requirements_completion_report.md)
