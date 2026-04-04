@@ -29,6 +29,7 @@ Instead of treating traceability as a static record, the platform captures actua
 - Batch lifecycle management with certificate metadata and manifest export
 - Logistics checkpoint verification with temperature, notes, and signatures
 - Checkpoint-based route map rendering on real OpenStreetMap tiles for consumer, admin, and logistics views
+- Lightweight admin reporting snapshot and certificate governance summary views
 - Retailer acceptance and rejection workflow
 - Admin approval flow for partner onboarding and certificate control
 - Dockerized backend runtime for local development and production deployment
@@ -117,6 +118,7 @@ Implemented:
 - public batch traceability view
 - real checkpoint-based timeline rendering
 - checkpoint-based route map rendering using OpenStreetMap tiles
+- lightweight admin reporting and certificate governance views
 - manifest PDF export
 - QR payload parsing across app flows
 - Dockerized local backend stack
@@ -150,10 +152,22 @@ docker compose up -d --build
 docker exec halaltrack_app php artisan migrate --force
 ```
 
+For day-to-day backend code refresh without resetting the database:
+
+```powershell
+docker compose up -d --build app nginx
+```
+
 Local services:
 
 - API: `http://127.0.0.1:8000`
 - MariaDB host port: `3308`
+
+Seed note:
+
+- `documentation/database/halaltrack_db.sql` is the Docker initialization dump for fresh MariaDB volumes
+- it includes map-friendly demo data for `ali@processor.com`, `driver@logistics.com`, `manager@retailer.com`, and `admin@halalchain.my`
+- if a database volume already exists, editing the SQL file alone will not update the running database until you recreate the volume or patch the live DB
 
 Optional bind-mount development mode:
 
@@ -195,7 +209,7 @@ flutter test
 
 Current local validation completed in this repository:
 
-- backend `composer test` passes
+- backend `php artisan test` passes
 - frontend `flutter analyze` passes
 - frontend `flutter test` passes
 - backend Docker image builds successfully
@@ -233,6 +247,7 @@ Local demo accounts available for presentation:
 Notes:
 
 - public consumer traceability does not require login
+- the seeded demo database includes checkpoint-rich shipment routes for the main demo accounts above
 - local demo mode still includes limited shortcuts for testing speed
 - production rollout should tighten or remove those bypasses
 

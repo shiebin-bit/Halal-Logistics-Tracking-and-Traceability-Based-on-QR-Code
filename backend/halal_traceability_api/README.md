@@ -11,6 +11,7 @@ This backend handles authentication, role authorization, batch lifecycle managem
 - processor batch creation and certificate handling
 - logistics checkpoint and incident APIs
 - logistics assigned-route summaries and batch-detail data for route maps
+- logistics summary temperature formatting that ignores placeholder `0` readings in route previews
 - retailer acceptance workflow
 - admin approval and governance endpoints
 - public batch listing and detail endpoints
@@ -34,6 +35,12 @@ From the project root:
 ```powershell
 docker compose up -d --build
 docker exec halaltrack_app php artisan migrate --force
+```
+
+To rebuild the API container after backend code changes while keeping the existing database volume:
+
+```powershell
+docker compose up -d --build app nginx
 ```
 
 If you want to work directly inside this folder without Docker:
@@ -96,6 +103,7 @@ Production deployment assets live at the repository level:
 
 - Local testing uses SQLite in-memory, not MariaDB.
 - Core API flows for the FYP demo are implemented and covered by passing backend tests.
+- The repository-level Docker SQL dump contains demo-ready shipment checkpoints for the main presentation accounts.
 - Production email, VPS runtime secrets, and external deployment validation remain deployment tasks rather than missing API business logic.
 - Production secrets should stay in VPS environment files or GitHub secrets, never in the repository.
 - This folder contains the application source and image definition; deployment orchestration is kept outside this folder on purpose.

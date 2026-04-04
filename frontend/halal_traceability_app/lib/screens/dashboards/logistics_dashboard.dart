@@ -18,6 +18,37 @@ import '../../services/qr_payload_service.dart';
 import '../../widgets/route_map_card.dart';
 import 'widgets/dashboard_widgets.dart';
 
+String _formatTemperatureLabel(dynamic rawTemperature) {
+  final text = rawTemperature?.toString().trim();
+  if (text == null || text.isEmpty) {
+    return 'N/A';
+  }
+
+  final normalized = text.replaceAll('°C', '').trim();
+  final value = double.tryParse(normalized);
+  if (value == null) {
+    return text;
+  }
+
+  if (value == 0) {
+    return 'N/A';
+  }
+
+  final formatted = value == value.roundToDouble()
+      ? value.toStringAsFixed(0)
+      : value
+          .toStringAsFixed(2)
+          .replaceFirst(RegExp(r'0+$'), '')
+          .replaceFirst(RegExp(r'\.$'), '');
+
+  return '$formatted°C';
+}
+
+String? _formatTemperatureChip(dynamic rawTemperature) {
+  final label = _formatTemperatureLabel(rawTemperature);
+  return label == 'N/A' ? null : label;
+}
+
 /// Logistics workspace for route tracking, checkpoint capture, and incidents.
 class LogisticsDashboard extends StatefulWidget {
   const LogisticsDashboard({super.key});
@@ -156,11 +187,19 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
     }
   }
 
-  Future<void> _openRouteDetails(Map<String, dynamic> route) async {
+  int? _linkedBatchIdForRoute(Map<String, dynamic> route) {
     final rawBatchId = route['id'];
-    final batchId = rawBatchId is int
+    return rawBatchId is int
         ? rawBatchId
         : int.tryParse(rawBatchId?.toString() ?? '');
+  }
+
+  bool _hasRouteDetail(Map<String, dynamic> route) {
+    return _linkedBatchIdForRoute(route) != null;
+  }
+
+  Future<void> _openRouteDetails(Map<String, dynamic> route) async {
+    final batchId = _linkedBatchIdForRoute(route);
 
     if (batchId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -797,11 +836,16 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
             itemBuilder: (context, index) {
               final route =
                   (_assignedShipments[index] as Map).cast<String, dynamic>();
-              final isOnRoute = route['status'] == "On Route";
+              final statusLabel = route['status']?.toString() ?? 'Pending';
+              final isOnRoute =
+                  statusLabel == 'On Route' || statusLabel == 'In Transit';
+              final hasRouteDetail = _hasRouteDetail(route);
+              final routeActionColor =
+                  hasRouteDetail ? const Color(0xFF1565C0) : Colors.grey;
               return StaggeredListItem(
                 index: 3 + index,
                 child: GestureDetector(
-                  onTap: () => _openRouteDetails(route),
+                  onTap: hasRouteDetail ? () => _openRouteDetails(route) : null,
                   child: GlassCard(
                     padding: const EdgeInsets.all(18),
                     child: Column(
@@ -842,7 +886,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                                 ),
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              child: Text(route['status'],
+                              child: Text(statusLabel,
                                   style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w700,
@@ -867,7 +911,7 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                                "ETA: ${route['eta']} • Temp: ${route['temp']}",
+                                "ETA: ${route['eta']} • Temp: ${_formatTemperatureLabel(route['temp'])}",
                                 style: TextStyle(color: Colors.grey[600])),
                           ),
                         ]),
@@ -886,26 +930,30 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                           children: [
                             Text(
                               route['batch_id_raw']?.toString() ?? 'Batch detail',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1565C0),
+                                color: routeActionColor,
                               ),
                             ),
-                            const Row(
+                            Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'Open route detail',
+                                  hasRouteDetail
+                                      ? 'Open route detail'
+                                      : 'Route detail unavailable',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF1565C0),
+                                    color: routeActionColor,
                                   ),
                                 ),
-                                SizedBox(width: 6),
+                                const SizedBox(width: 6),
                                 Icon(
-                                  Icons.arrow_forward_rounded,
+                                  hasRouteDetail
+                                      ? Icons.arrow_forward_rounded
+                                      : Icons.remove_circle_outline_rounded,
                                   size: 18,
-                                  color: Color(0xFF1565C0),
+                                  color: routeActionColor,
                                 ),
                               ],
                             ),
@@ -1413,9 +1461,9 @@ class _LogisticsBatchDetailScreenState extends State<LogisticsBatchDetailScreen>
         widget.routeSummary['destination']?.toString() ??
         'Destination pending';
     final eta = widget.routeSummary['eta']?.toString() ?? 'TBD';
-    final latestTemp = latestCheckpoint?['temperature']?.toString() ??
-        widget.routeSummary['temp']?.toString() ??
-        'N/A';
+    final latestTemp = _formatTemperatureLabel(
+      latestCheckpoint?['temperature'] ?? widget.routeSummary['temp'],
+    );
     final holderName = currentHolder['name']?.toString() ??
         widget.routeSummary['truckId']?.toString() ??
         'Unassigned';
@@ -1903,10 +1951,11 @@ class _LogisticsBatchDetailScreenState extends State<LogisticsBatchDetailScreen>
                         Icons.schedule_rounded,
                         _formatCheckpointDate(checkpoint['created_at']),
                       ),
-                      if (checkpoint['temperature'] != null)
+                      if (_formatTemperatureChip(checkpoint['temperature']) !=
+                          null)
                         _buildCheckpointChip(
                           Icons.thermostat_rounded,
-                          '${checkpoint['temperature']}°C',
+                          _formatTemperatureChip(checkpoint['temperature'])!,
                         ),
                     ],
                   ),
@@ -1920,25 +1969,34 @@ class _LogisticsBatchDetailScreenState extends State<LogisticsBatchDetailScreen>
   }
 
   Widget _buildCheckpointChip(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1565C0).withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width * 0.68,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: const Color(0xFF1565C0)),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF0D47A1),
-              fontWeight: FontWeight.w600,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1565C0).withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: const Color(0xFF1565C0)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

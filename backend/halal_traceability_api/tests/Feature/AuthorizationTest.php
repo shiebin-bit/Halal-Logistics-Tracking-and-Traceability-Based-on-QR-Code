@@ -378,6 +378,17 @@ class AuthorizationTest extends TestCase
             'notes' => 'Transit checkpoint recorded.',
         ]);
 
+        Checkpoint::create([
+            'batch_id' => $batch->id,
+            'user_id' => $processor->id,
+            'location_name' => 'System Placeholder',
+            'temperature' => 0,
+            'action_type' => 'transit_update',
+            'notes' => 'System-generated placeholder checkpoint.',
+            'created_at' => now()->addMinutes(5),
+            'updated_at' => now()->addMinutes(5),
+        ]);
+
         Sanctum::actingAs($logistics);
 
         $this->getJson('/api/logistics/routes')

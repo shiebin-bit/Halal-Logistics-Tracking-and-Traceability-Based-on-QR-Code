@@ -24,8 +24,11 @@ class LogisticsController extends Controller
             ->get();
 
         $formatted = $batches->map(function (Batch $batch) {
-            $latestCheckpoint = $batch->checkpoints()->latest()->first();
-            $currentTemp = $latestCheckpoint ? $latestCheckpoint->temperature.'°C' : 'N/A';
+            $latestMeaningfulCheckpoint = $batch->checkpoints()
+                ->where('temperature', '!=', 0)
+                ->latest()
+                ->first();
+            $currentTemp = $this->formatCheckpointTemperature($latestMeaningfulCheckpoint);
             $progress = match ($batch->status) {
                 'QR Generated' => 0.2,
                 'In Transit' => 0.6,
@@ -46,6 +49,20 @@ class LogisticsController extends Controller
         });
 
         return response()->json(['data' => $formatted]);
+    }
+
+    private function formatCheckpointTemperature(?Checkpoint $checkpoint): string
+    {
+        if (!$checkpoint) {
+            return 'N/A';
+        }
+
+        $temperature = $checkpoint->temperature;
+        if ($temperature === null || (float) $temperature === 0.0) {
+            return 'N/A';
+        }
+
+        return rtrim(rtrim(number_format((float) $temperature, 2, '.', ''), '0'), '.').'°C';
     }
 
     public function reportIncident(Request $request)

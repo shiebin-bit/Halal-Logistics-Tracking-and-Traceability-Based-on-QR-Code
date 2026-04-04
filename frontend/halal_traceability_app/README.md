@@ -13,6 +13,7 @@ This app is used by `admin`, `processor`, `logistics`, `retailer`, and public `c
 - retailer shipment acceptance workflow
 - public consumer traceability lookup
 - checkpoint-based shipment route maps for consumer, admin, and logistics detail views
+- lightweight admin reporting widgets and logistics detail timeline polish for demo use
 - profile image and document-related UI flows
 
 ## Stack
@@ -86,6 +87,7 @@ lib/
 - Public consumer traceability does not require login.
 - The current shipment map uses OpenStreetMap tiles and stored checkpoint coordinates.
 - The current map is not continuous background GPS streaming; it updates when checkpoints are recorded.
+- Logistics route detail cards now truncate long checkpoint labels cleanly on smaller mobile screens.
 - Production builds should point to the real backend origin with `--dart-define=API_ORIGIN=...`.
 
 For broader project context, see the root [README](../../README.md).

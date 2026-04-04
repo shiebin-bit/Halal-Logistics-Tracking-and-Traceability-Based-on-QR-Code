@@ -27,8 +27,10 @@ This directory is organized by document type so reports, deployment notes, propo
 - Core multi-role demo flows are implemented and locally runnable.
 - Frontend verification is now passing with `flutter analyze` and `flutter test`.
 - The shared shipment route map has been implemented with OpenStreetMap tiles and checkpoint coordinates.
+- The main Docker SQL dump now includes map-friendly demo data for the primary presentation accounts.
 - Remaining open work is mainly production-facing deployment, SMTP, and rollout hardening.
 
 ## Database Assets
 
 - [halaltrack_db.sql](database/halaltrack_db.sql)
+  Docker initialization dump used for fresh MariaDB volumes, including the main demo-user dataset.

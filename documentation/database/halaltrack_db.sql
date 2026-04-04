@@ -55,12 +55,12 @@ CREATE TABLE `batches` (
 --
 
 INSERT INTO `batches` (`id`, `batch_id`, `processor_id`, `current_holder_id`, `product_type`, `weight`, `slaughter_date`, `origin_farm`, `processing_factory`, `current_location`, `qr_code_hash`, `status`, `freshness_score`, `halal_status`, `created_at`, `updated_at`, `driver_id`, `truck_plate`, `destination_address`, `estimated_arrival`) VALUES
-(1, 'B-2025-001', 1, 2, 'Whole Chicken', '500kg', '2025-10-10', 'Farm A (Perak)', 'Ali Halal Factory', 'In Transit (Truck JPG 8832)', 'd6d08b44478c173328cdccf47250e1a8', 'In Transit', 98, 'compliant', '2026-01-10 22:45:00', '2026-03-06 05:50:20', 2, 'JPG 8832', 'Fresh Mart KL (Bukit Bintang)', '2026-01-11 17:34:20'),
+(1, 'B-2025-001', 1, 2, 'Whole Chicken', '500kg', '2025-10-10', 'Farm A (Perak)', 'Ali Halal Factory', 'KL Distribution Entry (Jalan Duta)', 'd6d08b44478c173328cdccf47250e1a8', 'In Transit', 98, 'compliant', '2026-01-10 22:45:00', '2026-03-20 06:10:00', 2, 'JPG 8832', 'Fresh Mart KL (Bukit Bintang)', '2026-03-20 17:34:20'),
 (2, 'B-2025-004', 1, 1, 'Chicken Drumsticks', '300kg', '2025-10-12', 'Farm B (Johor)', 'Ali Halal Factory', 'Factory Cold Room B', 'c2c3cb857ce6b3f2f82b2008e65e068d', 'Processing', 99, 'compliant', '2026-01-11 06:57:26', '2026-01-11 07:04:17', NULL, NULL, NULL, NULL),
-(3, 'B-2025-005', 1, 2, 'Chicken Feet', '150kg', '2025-10-13', 'Farm A (Perak)', 'Ali Halal Factory', 'Hwy E1 Northbound (Truck JPG 8832)', 'ead230ee5291127d437e4d0edfd66d16', 'In Transit', 94, 'compliant', '2026-01-11 06:57:26', '2026-01-11 06:57:26', 2, 'JPG 8832', 'Fresh Mart KL (Bukit Bintang)', '2026-01-11 17:34:20'),
+(3, 'B-2025-005', 1, 2, 'Chicken Feet', '150kg', '2025-10-13', 'Farm A (Perak)', 'Ali Halal Factory', 'Sungai Buloh Toll Plaza', 'ead230ee5291127d437e4d0edfd66d16', 'In Transit', 94, 'compliant', '2026-01-11 06:57:26', '2026-03-20 06:45:00', 2, 'JPG 8832', 'Fresh Mart KL (Bukit Bintang)', '2026-03-20 17:34:20'),
 (4, 'B-2025-006', 1, 3, 'Nuggets (Processed)', '500kg', '2025-10-09', 'Farm C (Kedah)', 'Ali Halal Factory', 'Fresh Mart KL - Store Room', '595c316b291dccd6f4dae676385fa6f2', 'Delivered', 90, 'compliant', '2026-01-11 06:57:26', '2026-01-11 06:57:26', 2, 'JPG 8832', 'Tesco Penang (George Town)', '2026-01-11 20:34:20'),
 (5, 'B-2025-007', 1, 1, 'Whole Chicken', '1000kg', '2025-10-14', 'Farm A (Perak)', 'Ali Halal Factory', 'Processing Line 1', '55901585b7532b72c1d9ff1912e32e3f', 'Processing', 100, 'compliant', '2026-01-11 06:57:26', '2026-01-11 06:57:26', NULL, NULL, NULL, NULL),
-(6, 'B-2025-008', 1, 2, 'Chicken Wings', '250kg', '2025-10-11', 'Farm B (Johor)', 'Ali Halal Factory', 'Rest Stop Tapah', '12375d84208e81acd0a5de1273cd1d9e', 'In Transit', 75, 'compliant', '2026-01-11 06:57:26', '2026-01-11 06:57:26', 2, 'JPG 8832', 'Fresh Mart KL (Bukit Bintang)', '2026-01-11 17:34:20'),
+(6, 'B-2025-008', 1, 2, 'Chicken Wings', '250kg', '2025-10-11', 'Farm B (Johor)', 'Ali Halal Factory', 'Rawang R&R Southbound', '12375d84208e81acd0a5de1273cd1d9e', 'In Transit', 75, 'compliant', '2026-01-11 06:57:26', '2026-03-20 07:05:00', 2, 'JPG 8832', 'Fresh Mart KL (Bukit Bintang)', '2026-03-20 17:34:20'),
 (7, 'B-2025-009', 1, 3, 'Chicken Breast', '200kg', '2025-10-08', 'Farm A (Perak)', 'Ali Halal Factory', 'Fresh Mart KL - Quarantine Zone', '3d6b5adae28967ec0afec258f8fef924', 'Delivered', 85, 'investigation', '2026-01-11 06:57:26', '2026-01-11 06:57:26', 2, 'JPG 8832', 'Fresh Mart KL (Bukit Bintang)', '2026-01-11 20:36:12'),
 (8, 'B-2025-010', 1, 1, 'Whole Chicken', '2000kg', '2025-10-13', 'Farm C (Kedah)', 'Ali Halal Factory', 'Factory Loading Bay', 'c2427fbaed6fd9a4bbf3d1dfcba49693', 'Ready', 98, 'compliant', '2026-01-11 06:57:26', '2026-01-11 06:57:26', NULL, NULL, NULL, NULL),
 (9, 'B-2025-101', 9, 9, 'Premium Beef Cuts', '400kg', '2025-10-20', 'Farm D (Pahang)', 'Top Halal Meat Processor', 'Cold Room A', 'c708b4d3a8d4f55c78003742b4930d20', 'Processing', 100, 'compliant', '2026-03-06 05:46:42', '2026-03-06 05:46:42', NULL, NULL, NULL, NULL),
@@ -128,7 +128,14 @@ INSERT INTO `checkpoints` (`id`, `batch_id`, `user_id`, `location_name`, `latitu
 (25, 18, 3, 'Fresh Mart KL - Receiving Cold Room', 3.14660000, 101.69580000, -17.90, 'arrival', 'Accepted by retailer after seal, quantity, and temperature verification', NULL, '2026-03-20 08:15:00', '2026-03-20 08:15:00'),
 (26, 19, 9, 'Top Halal Meat Processor - Freezer Dock', 2.18960000, 102.25010000, -18.70, 'arrival', 'Batch created in system and queued for dispatch', NULL, '2026-03-21 00:30:00', '2026-03-21 00:30:00'),
 (27, 19, 10, 'Top Halal Meat Processor - Departure Gate', 2.19090000, 102.25190000, -18.50, 'departure', 'Driver acknowledged custody transfer for truck BEM 1234', NULL, '2026-03-21 01:05:00', '2026-03-21 01:05:00'),
-(28, 19, 10, 'North-South Expressway, Seremban Bound', 2.73180000, 101.93860000, -9.80, 'transit_update', '[INCIDENT: Temperature Breach] Freezer alarm triggered; truck diverted for inspection', NULL, '2026-03-21 05:10:00', '2026-03-21 05:10:00');
+(28, 19, 10, 'North-South Expressway, Seremban Bound', 2.73180000, 101.93860000, -9.80, 'transit_update', '[INCIDENT: Temperature Breach] Freezer alarm triggered; truck diverted for inspection', NULL, '2026-03-21 05:10:00', '2026-03-21 05:10:00'),
+(29, 1, 2, 'PLUS Highway Rawang', 3.32140000, 101.57690000, -18.30, 'transit_update', 'Routine checkpoint before entering Klang Valley.', NULL, '2026-03-20 04:40:00', '2026-03-20 04:40:00'),
+(30, 1, 2, 'KL Distribution Entry (Jalan Duta)', 3.17090000, 101.67360000, -18.10, 'transit_update', 'Approaching city distribution corridor with seal intact.', NULL, '2026-03-20 06:10:00', '2026-03-20 06:10:00'),
+(31, 3, 2, 'Sungai Buloh Toll Plaza', 3.23730000, 101.58380000, -18.90, 'transit_update', 'Checkpoint recorded after toll clearance.', NULL, '2026-03-20 05:25:00', '2026-03-20 05:25:00'),
+(32, 3, 2, 'Segambut Link Approach', 3.18560000, 101.66540000, -18.70, 'transit_update', 'Maintaining target freezer temperature en route to retailer.', NULL, '2026-03-20 06:45:00', '2026-03-20 06:45:00'),
+(33, 6, 2, 'Tapah Recovery Stop', 4.19450000, 101.26000000, -12.00, 'transit_update', '[INCIDENT: Temperature Breach] Cooling performance dipped during transit.', NULL, '2026-03-20 03:30:00', '2026-03-20 03:30:00'),
+(34, 6, 2, 'Rawang R&R Southbound', 3.33900000, 101.58420000, -17.40, 'transit_update', 'Temperature stabilized after inspection and compressor reset.', NULL, '2026-03-20 07:05:00', '2026-03-20 07:05:00'),
+(35, 18, 3, 'Fresh Mart KL - Inventory Release', 3.14690000, 101.69620000, -17.80, 'handover', 'Retail inventory confirmed and released for shelf preparation.', NULL, '2026-03-20 09:05:00', '2026-03-20 09:05:00');
 
 -- --------------------------------------------------------
 
@@ -575,7 +582,7 @@ ALTER TABLE `batches`
 -- AUTO_INCREMENT for table `checkpoints`
 --
 ALTER TABLE `checkpoints`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- AUTO_INCREMENT for table `incidents`
