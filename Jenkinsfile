@@ -6,6 +6,7 @@ pipeline {
         ansiColor('xterm')
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '15'))
+        skipDefaultCheckout(true)
     }
 
     parameters {
@@ -16,8 +17,8 @@ pipeline {
         )
         booleanParam(
             name: 'RUN_FRONTEND_CHECKS',
-            defaultValue: true,
-            description: 'Run flutter analyze and flutter test.'
+            defaultValue: false,
+            description: 'Run flutter analyze and flutter test. Keep this disabled on Windows Jenkins unless symlink support / Developer Mode is enabled.'
         )
         booleanParam(
             name: 'RUN_DOCKER_BUILD',
