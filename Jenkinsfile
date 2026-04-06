@@ -28,8 +28,8 @@ pipeline {
     }
 
     environment {
-        REPO_URL = 'git@github.com:shiebin-bit/Halal-Logistics-Tracking-and-Traceability-Based-on-QR-Code.git'
-        GIT_CREDENTIALS_ID = 'github-ssh'
+        REPO_URL = 'https://github.com/shiebin-bit/Halal-Logistics-Tracking-and-Traceability-Based-on-QR-Code.git'
+        GIT_CREDENTIALS_ID = 'shiebin-bit'
         BACKEND_DIR = 'backend/halal_traceability_api'
         FRONTEND_DIR = 'frontend/halal_traceability_app'
         BACKEND_IMAGE = "halaltrack-backend:${env.BUILD_NUMBER}"
