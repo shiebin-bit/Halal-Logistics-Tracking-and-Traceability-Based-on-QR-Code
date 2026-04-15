@@ -4,11 +4,15 @@ on:
   push:
     paths:
       - ".github/workflows/backend-ci.yml"
+      - ".github/workflows/cd.yml"
       - "backend/halal_traceability_api/**"
+      - "deploy/**"
   pull_request:
     paths:
       - ".github/workflows/backend-ci.yml"
+      - ".github/workflows/cd.yml"
       - "backend/halal_traceability_api/**"
+      - "deploy/**"
   workflow_dispatch:
 
 jobs:
@@ -64,8 +68,10 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
     env:
       IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/halal-track-backend
+      SCAN_IMAGE_REF: halaltrack-backend:trivy-${{ github.sha }}
 
     steps:
       - name: Checkout repository
@@ -100,12 +106,52 @@ jobs:
           file: ./backend/halal_traceability_api/Dockerfile
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           load: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ env.SCAN_IMAGE_REF }}
+            ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Run Trivy image scan
+        id: trivy-image-scan
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ env.SCAN_IMAGE_REF }}
+          format: sarif
+          output: trivy-image.sarif
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+
+      - name: Upload Trivy image scan results
+        if: always() && hashFiles('trivy-image.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-image.sarif
+
+      - name: Run Trivy config scan
+        if: always()
+        id: trivy-config-scan
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: config
+          scan-ref: .
+          format: sarif
+          output: trivy-config.sarif
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+          hide-progress: true
+
+      - name: Upload Trivy config scan results
+        if: always() && hashFiles('trivy-config.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-config.sarif
+
       - name: Show generated image tags
+        if: always()
         run: |
           echo "Built image tags:"
           echo "${{ steps.meta.outputs.tags }}"
