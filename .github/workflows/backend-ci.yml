@@ -115,7 +115,7 @@ jobs:
 
       - name: Run Trivy image scan
         id: trivy-image-scan
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.33.1
         with:
           image-ref: ${{ env.SCAN_IMAGE_REF }}
           format: sarif
@@ -134,7 +134,7 @@ jobs:
       - name: Run Trivy config scan
         if: always()
         id: trivy-config-scan
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.33.1
         with:
           scan-type: config
           scan-ref: .
