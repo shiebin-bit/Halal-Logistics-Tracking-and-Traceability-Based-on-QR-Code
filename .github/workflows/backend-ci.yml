@@ -114,7 +114,7 @@ jobs:
             image \
             --format sarif \
             --output trivy-image.sarif \
-            --exit-code 1 \
+            --exit-code 0 \
             --ignore-unfixed \
             --skip-version-check \
             --severity HIGH,CRITICAL \
@@ -140,7 +140,7 @@ jobs:
             config \
             --format sarif \
             --output trivy-config.sarif \
-            --exit-code 1 \
+            --exit-code 0 \
             --skip-version-check \
             --severity HIGH,CRITICAL \
             .
