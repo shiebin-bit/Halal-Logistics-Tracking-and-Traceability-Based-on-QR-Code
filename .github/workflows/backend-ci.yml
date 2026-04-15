@@ -103,24 +103,22 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Install Trivy CLI
-        run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b "$RUNNER_TEMP/trivy-bin" v0.68.2
-          echo "$RUNNER_TEMP/trivy-bin" >> "$GITHUB_PATH"
-          "$RUNNER_TEMP/trivy-bin/trivy" --version
-
       - name: Run Trivy image scan
         id: trivy-image-scan
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          skip-setup-trivy: true
-          image-ref: ${{ env.SCAN_IMAGE_REF }}
-          format: sarif
-          output: trivy-image.sarif
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: HIGH,CRITICAL
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${{ github.workspace }}:/workdir" \
+            -w /workdir \
+            aquasec/trivy:0.68.2 \
+            image \
+            --format sarif \
+            --output trivy-image.sarif \
+            --exit-code 1 \
+            --ignore-unfixed \
+            --severity HIGH,CRITICAL \
+            --vuln-type os,library \
+            "${{ env.SCAN_IMAGE_REF }}"
 
       - name: Upload Trivy image scan results
         if: always() && hashFiles('trivy-image.sarif') != ''
@@ -131,16 +129,17 @@ jobs:
       - name: Run Trivy config scan
         if: always()
         id: trivy-config-scan
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          skip-setup-trivy: true
-          scan-type: config
-          scan-ref: .
-          format: sarif
-          output: trivy-config.sarif
-          exit-code: "1"
-          severity: HIGH,CRITICAL
-          hide-progress: true
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workdir" \
+            -w /workdir \
+            aquasec/trivy:0.68.2 \
+            config \
+            --format sarif \
+            --output trivy-config.sarif \
+            --exit-code 1 \
+            --severity HIGH,CRITICAL \
+            .
 
       - name: Upload Trivy config scan results
         if: always() && hashFiles('trivy-config.sarif') != ''
