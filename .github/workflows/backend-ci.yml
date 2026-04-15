@@ -80,14 +80,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GHCR
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -99,16 +91,14 @@ jobs:
             type=ref,event=pr
             type=sha,format=short,prefix=sha-
 
-      - name: Build backend image
+      - name: Build backend image for Trivy scan
         uses: docker/build-push-action@v6
         with:
           context: ./backend/halal_traceability_api
           file: ./backend/halal_traceability_api/Dockerfile
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          push: false
           load: true
-          tags: |
-            ${{ env.SCAN_IMAGE_REF }}
-            ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.SCAN_IMAGE_REF }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -150,8 +140,40 @@ jobs:
         with:
           sarif_file: trivy-config.sarif
 
+      - name: Upload Trivy scan artifacts
+        if: always() && (hashFiles('trivy-image.sarif') != '' || hashFiles('trivy-config.sarif') != '')
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-reports-${{ github.run_id }}
+          path: |
+            trivy-image.sarif
+            trivy-config.sarif
+          if-no-files-found: ignore
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push backend image to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend/halal_traceability_api
+          file: ./backend/halal_traceability_api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Show generated image tags
         if: always()
         run: |
-          echo "Built image tags:"
+          echo "Local scan image:"
+          echo "${{ env.SCAN_IMAGE_REF }}"
+          echo "Publish tags:"
           echo "${{ steps.meta.outputs.tags }}"
