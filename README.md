@@ -30,6 +30,7 @@ Instead of treating traceability as a static record, the platform captures actua
 - Logistics checkpoint verification with temperature, notes, and signatures
 - Checkpoint-based route map rendering on real OpenStreetMap tiles for consumer, admin, and logistics views
 - Lightweight admin reporting snapshot and certificate governance summary views
+- Gemini-powered role assistant for `processor`, `logistics`, and `retailer` through a Laravel backend proxy
 - Retailer acceptance and rejection workflow
 - Admin approval flow for partner onboarding and certificate control
 - Dockerized backend runtime for local development and production deployment
@@ -119,6 +120,8 @@ Implemented:
 - real checkpoint-based timeline rendering
 - checkpoint-based route map rendering using OpenStreetMap tiles
 - lightweight admin reporting and certificate governance views
+- drawer-based Gemini role assistant for `processor`, `logistics`, and `retailer`
+- current-screen plus current-month AI context summaries through the backend proxy
 - manifest PDF export
 - QR payload parsing across app flows
 - Dockerized local backend stack
@@ -138,6 +141,7 @@ Important scope note:
 
 Detailed status:
 
+- [AI Assistant And System Verification Report](documentation/reports/ai_assistant_and_system_verification_report.md)
 - [Current Improvement Roadmap](documentation/reports/current_improvement_roadmap.md)
 - [Requirements Completion Report](documentation/reports/requirements_completion_report.md)
 
@@ -213,6 +217,8 @@ Current local validation completed in this repository:
 - frontend `flutter analyze` passes
 - frontend `flutter test` passes
 - backend Docker image builds successfully
+- live Docker backend, database, and seeded role flows have been smoke-tested successfully
+- live Gemini assistant proxy flow has been smoke-tested successfully
 
 Business logic status:
 
@@ -253,6 +259,7 @@ Notes:
 
 ## Documentation
 
+- [AI Assistant And System Verification Report](documentation/reports/ai_assistant_and_system_verification_report.md)
 - [Enterprise System Explanation Report](documentation/reports/enterprise_system_explanation_report.md)
 - [Documentation Index](documentation/README.md)
 - [Deployment Guide](documentation/deployment/vps_docker_nginx_github_actions_deployment_guide.md)

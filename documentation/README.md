@@ -15,6 +15,7 @@ This directory is organized by document type so reports, deployment notes, propo
 
 ## Key Documents
 
+- [AI Assistant And System Verification Report](reports/ai_assistant_and_system_verification_report.md)
 - [Enterprise System Explanation Report](reports/enterprise_system_explanation_report.md)
 - [Current Improvement Roadmap](reports/current_improvement_roadmap.md)
 - [Deployment Guide](deployment/vps_docker_nginx_github_actions_deployment_guide.md)
@@ -27,8 +28,11 @@ This directory is organized by document type so reports, deployment notes, propo
 
 - Core multi-role demo flows are implemented and locally runnable.
 - Frontend verification is now passing with `flutter analyze` and `flutter test`.
+- The Gemini-backed drawer-based AI assistant is implemented for `processor`, `logistics`, and `retailer`.
 - The shared shipment route map has been implemented with OpenStreetMap tiles and checkpoint coordinates.
 - The main Docker SQL dump now includes map-friendly demo data for the primary presentation accounts.
+- The live Docker backend, database, and seeded demo flows have been re-verified after the AI assistant rollout.
+- Backend automated verification is currently fully passing again with `php artisan test`.
 - Remaining open work is mainly production-facing deployment, SMTP, and rollout hardening.
 
 ## Database Assets

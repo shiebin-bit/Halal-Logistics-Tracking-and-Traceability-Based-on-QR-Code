@@ -15,7 +15,9 @@ import '../../services/batch_route_mapper.dart';
 import '../../services/location_service.dart';
 import '../../services/profile_image_service.dart';
 import '../../services/qr_payload_service.dart';
+import '../../services/role_assistant_context_builder.dart';
 import '../../widgets/route_map_card.dart';
+import '../../widgets/role_assistant_page.dart';
 import 'widgets/dashboard_widgets.dart';
 
 String _formatTemperatureLabel(dynamic rawTemperature) {
@@ -318,6 +320,46 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
     return _refreshCurrentLocation();
   }
 
+  String _assistantScreen() {
+    switch (_selectedIndex) {
+      case 1:
+        return 'logistics.checkpoint_scanner';
+      case 2:
+        return 'logistics.incidents';
+      default:
+        return 'logistics.routes';
+    }
+  }
+
+  Map<String, dynamic> _assistantContext() {
+    return RoleAssistantContextBuilder.logisticsDashboard(
+      selectedIndex: _selectedIndex,
+      userData: _userData,
+      shipments: _assignedShipments,
+      scannedBatchId: _scannedBatchId,
+      temperature: _tempController.text.trim(),
+      location: _locationController.text.trim(),
+      notes: _notesController.text.trim(),
+      hasCurrentLocation: _currentLocation != null,
+    );
+  }
+
+  void _openAssistantPage() {
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RoleAssistantPage(
+          role: 'logistics',
+          screen: _assistantScreen(),
+          title: 'Logistics Assistant',
+          accentColor: const Color(0xFF1565C0),
+          contextBuilder: _assistantContext,
+        ),
+      ),
+    );
+  }
+
   Future<AppLocation?> _refreshCurrentLocation() async {
     if (_isFetchingLocation) {
       return _currentLocation;
@@ -608,6 +650,33 @@ class _LogisticsDashboardState extends State<LogisticsDashboard> {
                   ),
                 );
               },
+            ),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Color(0xFF1565C0),
+                  size: 22,
+                ),
+              ),
+              title: const Text(
+                "AI Assistant",
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1565C0),
+                ),
+              ),
+              subtitle: Text(
+                "Ask about this current workspace",
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+              onTap: _openAssistantPage,
             ),
             const Spacer(),
             Padding(

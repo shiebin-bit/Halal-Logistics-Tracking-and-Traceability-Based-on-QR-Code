@@ -9,6 +9,8 @@ import '../../config.dart';
 import '../../services/auth_session_service.dart';
 import '../../services/profile_image_service.dart';
 import '../../services/qr_payload_service.dart';
+import '../../services/role_assistant_context_builder.dart';
+import '../../widgets/role_assistant_page.dart';
 import 'widgets/dashboard_widgets.dart';
 
 /// Retailer workspace for incoming shipments, scanning, and inventory control.
@@ -289,6 +291,48 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
     }
   }
 
+  String _assistantScreen() {
+    switch (_selectedIndex) {
+      case 1:
+        return 'retailer.receive_inspect';
+      case 2:
+        return 'retailer.inventory';
+      case 3:
+        return 'retailer.reports';
+      default:
+        return 'retailer.incoming';
+    }
+  }
+
+  Map<String, dynamic> _assistantContext() {
+    return RoleAssistantContextBuilder.retailerDashboard(
+      selectedIndex: _selectedIndex,
+      userData: _userData,
+      incomingShipments: _incomingShipments,
+      inventory: _myInventory,
+      scannedBatchId: _scannedBatchId,
+      arrivalTemperature: _arrivalTemperatureController.text.trim(),
+      rejectionReason: _rejectionReasonController.text.trim(),
+      qualityChecks: Map<String, bool>.from(_qualityChecks),
+    );
+  }
+
+  void _openAssistantPage() {
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RoleAssistantPage(
+          role: 'retailer',
+          screen: _assistantScreen(),
+          title: 'Retailer Assistant',
+          accentColor: const Color(0xFFE65100),
+          contextBuilder: _assistantContext,
+        ),
+      ),
+    );
+  }
+
   void _resetScanData() {
     setState(() {
       _scannedBatchId = null;
@@ -407,6 +451,33 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
                             userData: _userData,
                             onProfileUpdate: _fetchProfile)));
               },
+            ),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE65100).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Color(0xFFE65100),
+                  size: 22,
+                ),
+              ),
+              title: const Text(
+                "AI Assistant",
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFE65100),
+                ),
+              ),
+              subtitle: Text(
+                "Ask about this current workspace",
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+              onTap: _openAssistantPage,
             ),
             const Spacer(),
             Padding(
@@ -595,33 +666,46 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE65100)
-                                      .withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12),
+                            Expanded(
+                              child: Row(children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE65100)
+                                        .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(Icons.inventory_2_rounded,
+                                      color: Color(0xFFE65100), size: 22),
                                 ),
-                                child: const Icon(Icons.inventory_2_rounded,
-                                    color: Color(0xFFE65100), size: 22),
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(shipment['batch_id'],
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 16)),
-                                  Text(
-                                      "${shipment['product_type']} • ${shipment['weight']}",
-                                      style: TextStyle(
-                                          color: Colors.grey[500],
-                                          fontSize: 12)),
-                                ],
-                              ),
-                            ]),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        shipment['batch_id'],
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 16),
+                                      ),
+                                      Text(
+                                        "${shipment['product_type']} • ${shipment['weight']}",
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                            color: Colors.grey[500],
+                                            fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ]),
+                            ),
+                            const SizedBox(width: 12),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 5),
@@ -648,21 +732,42 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Row(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.agriculture_rounded,
-                                size: 14, color: Colors.grey[400]),
-                            const SizedBox(width: 4),
-                            Text("From: ${shipment['origin']}",
-                                style: TextStyle(
-                                    color: Colors.grey[500], fontSize: 12)),
-                            const SizedBox(width: 16),
-                            Icon(Icons.person_rounded,
-                                size: 14, color: Colors.grey[400]),
-                            const SizedBox(width: 4),
-                            Text("Driver: ${shipment['driver']}",
-                                style: TextStyle(
-                                    color: Colors.grey[500], fontSize: 12)),
+                            Row(
+                              children: [
+                                Icon(Icons.agriculture_rounded,
+                                    size: 14, color: Colors.grey[400]),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    "From: ${shipment['origin']}",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        color: Colors.grey[500], fontSize: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(Icons.person_rounded,
+                                    size: 14, color: Colors.grey[400]),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    "Driver: ${shipment['driver']}",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        color: Colors.grey[500], fontSize: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ],

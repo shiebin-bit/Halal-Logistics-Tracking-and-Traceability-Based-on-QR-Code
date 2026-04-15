@@ -14,6 +14,7 @@ This backend handles authentication, role authorization, batch lifecycle managem
 - logistics summary temperature formatting that ignores placeholder `0` readings in route previews
 - retailer acceptance workflow
 - admin approval and governance endpoints
+- Gemini-backed role assistant proxy for `processor`, `logistics`, and `retailer`
 - public batch listing and detail endpoints
 - manifest PDF generation
 
@@ -63,6 +64,12 @@ composer test
 
 Test configuration uses SQLite in memory through [phpunit.xml](./phpunit.xml).
 
+Current verification status:
+
+- `php artisan test` passes
+- the affected upload tests are stabilized for this Windows-based local environment
+- the live Docker API has been re-verified after the AI assistant rollout
+
 ## Useful Composer Scripts
 
 - `composer setup`
@@ -103,6 +110,8 @@ Production deployment assets live at the repository level:
 
 - Local testing uses SQLite in-memory, not MariaDB.
 - Core API flows for the FYP demo are implemented and covered by passing backend tests.
+- The AI assistant is exposed through `POST /api/assistant/chat` and keeps the Gemini API key server-side in Laravel.
+- Assistant prompts are role-restricted and context-aware; they are not unrestricted natural-language database queries.
 - The repository-level Docker SQL dump contains demo-ready shipment checkpoints for the main presentation accounts.
 - Production email, VPS runtime secrets, and external deployment validation remain deployment tasks rather than missing API business logic.
 - Production secrets should stay in VPS environment files or GitHub secrets, never in the repository.

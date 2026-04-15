@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 // 1. Auth & Entry Screens
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
@@ -24,6 +23,9 @@ class HalalLogisticsApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final baseTheme = ThemeData(useMaterial3: true);
+    final baseTextTheme = baseTheme.textTheme;
+
     return MaterialApp(
       title: 'Halal Logistics Tracking',
       debugShowCheckedModeBanner: false,
@@ -37,15 +39,28 @@ class HalalLogisticsApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.grey[50],
 
         // --- Premium Typography ---
-        textTheme: GoogleFonts.poppinsTextTheme().copyWith(
-          headlineLarge: GoogleFonts.poppins(fontWeight: FontWeight.w700),
-          headlineMedium: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          titleLarge: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          titleMedium: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          bodyLarge: GoogleFonts.inter(),
-          bodyMedium: GoogleFonts.inter(),
-          bodySmall: GoogleFonts.inter(),
-          labelLarge: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        textTheme: baseTextTheme.copyWith(
+          headlineLarge: baseTextTheme.headlineLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.2,
+          ),
+          headlineMedium: baseTextTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
+          titleLarge: baseTextTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+          titleMedium: baseTextTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+          bodyLarge: baseTextTheme.bodyLarge?.copyWith(height: 1.4),
+          bodyMedium: baseTextTheme.bodyMedium?.copyWith(height: 1.4),
+          bodySmall: baseTextTheme.bodySmall?.copyWith(height: 1.35),
+          labelLarge: baseTextTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
         ),
 
         // --- Premium Card Theme ---
@@ -66,7 +81,7 @@ class HalalLogisticsApp extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
-            textStyle: GoogleFonts.poppins(
+            textStyle: const TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 14,
               letterSpacing: 0.3,
@@ -81,7 +96,7 @@ class HalalLogisticsApp extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
-            textStyle: GoogleFonts.poppins(
+            textStyle: const TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),

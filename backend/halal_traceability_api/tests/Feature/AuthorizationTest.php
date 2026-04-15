@@ -6,7 +6,9 @@ use App\Models\Batch;
 use App\Models\Checkpoint;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request as HttpClientRequest;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -14,6 +16,16 @@ use Tests\TestCase;
 class AuthorizationTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $testingDisk = storage_path('framework/testing/disks/public');
+        if (!is_dir($testingDisk)) {
+            mkdir($testingDisk, 0777, true);
+        }
+    }
 
     public function test_non_admin_cannot_access_admin_stats(): void
     {
@@ -64,7 +76,7 @@ class AuthorizationTest extends TestCase
 
     public function test_partner_registration_requires_admin_approval_before_login(): void
     {
-        Storage::fake('public');
+        $this->fakePublicDisk();
 
         $registration = $this->post('/api/register', [
             'name' => 'Pending Processor',
@@ -108,7 +120,7 @@ class AuthorizationTest extends TestCase
 
     public function test_processor_registration_stores_verification_document(): void
     {
-        Storage::fake('public');
+        $this->fakePublicDisk();
 
         $response = $this->post('/api/register', [
             'name' => 'Document Processor',
@@ -256,7 +268,7 @@ class AuthorizationTest extends TestCase
 
     public function test_processor_can_create_batch_with_batch_level_certificate_document(): void
     {
-        Storage::fake('public');
+        $this->fakePublicDisk();
 
         $processor = User::factory()->create([
             'role' => 'processor',
@@ -398,6 +410,164 @@ class AuthorizationTest extends TestCase
             ->assertJsonPath('data.0.truckId', 'JPG 8832')
             ->assertJsonPath('data.0.destination', 'Fresh Mart KL')
             ->assertJsonPath('data.0.temp', '-18.5°C');
+    }
+
+    public function test_guest_cannot_access_ai_assistant_endpoint(): void
+    {
+        $this->postJson('/api/assistant/chat', [
+            'role' => 'processor',
+            'screen' => 'processor.create_batch',
+            'prompt' => 'Help me complete this batch.',
+            'context' => [],
+        ])->assertUnauthorized();
+    }
+
+    public function test_admin_cannot_access_ai_assistant_endpoint(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'phone_number' => '+60113330001',
+            'is_approved' => true,
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/assistant/chat', [
+            'role' => 'admin',
+            'screen' => 'admin.system_overview',
+            'prompt' => 'Summarize the dashboard.',
+            'context' => [],
+        ])->assertForbidden();
+    }
+
+    public function test_supported_role_can_receive_ai_assistant_response(): void
+    {
+        config([
+            'services.gemini.api_key' => 'test-gemini-key',
+            'services.gemini.model' => 'gemini-2.5-flash',
+            'services.gemini.base_url' => 'https://example.test/v1beta',
+            'services.gemini.timeout_seconds' => 5,
+        ]);
+
+        Http::fake([
+            'https://example.test/v1beta/models/gemini-2.5-flash:generateContent' => function (HttpClientRequest $request) {
+                $body = $request->data();
+                $promptText = $body['contents'][0]['parts'][0]['text'] ?? '';
+
+                $this->assertSame('test-gemini-key', $request->header('x-goog-api-key')[0] ?? null);
+                $this->assertStringContainsString('Processor assistant focus', $promptText);
+                $this->assertStringContainsString('Batch draft', $promptText);
+                $this->assertStringContainsString('Current month operational summary:', $promptText);
+                $this->assertStringContainsString('B-2026-MONTH-001', $promptText);
+                $this->assertStringNotContainsString('B-2026-OLD-001', $promptText);
+
+                return Http::response([
+                    'candidates' => [[
+                        'content' => [
+                            'parts' => [
+                                ['text' => 'Your draft batch looks mostly complete.'],
+                            ],
+                        ],
+                    ]],
+                ], 200);
+            },
+        ]);
+
+        $processor = User::factory()->create([
+            'role' => 'processor',
+            'phone_number' => '+60113330002',
+            'is_approved' => true,
+        ]);
+
+        $currentMonthBatch = Batch::create([
+            'batch_id' => 'B-2026-MONTH-001',
+            'processor_id' => $processor->id,
+            'current_holder_id' => $processor->id,
+            'product_type' => 'Whole Chicken',
+            'weight' => '100kg',
+            'slaughter_date' => now()->toDateString(),
+            'processing_date' => now()->toDateString(),
+            'origin_farm' => 'Farm Fresh',
+            'processing_factory' => 'Plant Alpha',
+            'current_location' => 'Shah Alam',
+            'status' => 'Ready for QR Generation',
+        ]);
+        $currentMonthBatch->forceFill([
+            'created_at' => now()->startOfMonth()->addDays(2),
+            'updated_at' => now()->startOfMonth()->addDays(2),
+        ])->save();
+
+        $previousMonthBatch = Batch::create([
+            'batch_id' => 'B-2026-OLD-001',
+            'processor_id' => $processor->id,
+            'current_holder_id' => $processor->id,
+            'product_type' => 'Chicken Wings',
+            'weight' => '80kg',
+            'slaughter_date' => now()->subMonth()->toDateString(),
+            'processing_date' => now()->subMonth()->toDateString(),
+            'origin_farm' => 'Farm Legacy',
+            'processing_factory' => 'Plant Beta',
+            'current_location' => 'Klang',
+            'status' => 'Delivered',
+        ]);
+        $previousMonthBatch->forceFill([
+            'created_at' => now()->subMonth()->startOfMonth()->addDays(1),
+            'updated_at' => now()->subMonth()->startOfMonth()->addDays(1),
+        ])->save();
+
+        Sanctum::actingAs($processor);
+
+        $this->postJson('/api/assistant/chat', [
+            'role' => 'processor',
+            'screen' => 'processor.create_batch',
+            'prompt' => 'Check this draft batch for missing details.',
+            'context' => [
+                'draft_label' => 'Batch draft',
+                'product_type' => 'Whole Chicken',
+            ],
+            'history' => [
+                [
+                    'role' => 'user',
+                    'content' => 'What should I verify before saving?',
+                ],
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('message', 'Your draft batch looks mostly complete.')
+            ->assertJsonPath('suggestions.0', 'Check whether this batch draft is complete.')
+            ->assertJsonPath('disclaimer', 'AI guidance supports operations only. Confirm final halal, safety, and approval decisions in the official workflow.');
+    }
+
+    public function test_ai_assistant_returns_controlled_error_when_upstream_fails(): void
+    {
+        config([
+            'services.gemini.api_key' => 'test-gemini-key',
+            'services.gemini.model' => 'gemini-2.5-flash',
+            'services.gemini.base_url' => 'https://example.test/v1beta',
+        ]);
+
+        Http::fake([
+            'https://example.test/v1beta/models/gemini-2.5-flash:generateContent' => Http::response([
+                'error' => ['message' => 'Bad gateway'],
+            ], 500),
+        ]);
+
+        $logistics = User::factory()->create([
+            'role' => 'logistics',
+            'phone_number' => '+60113330003',
+            'is_approved' => true,
+        ]);
+
+        Sanctum::actingAs($logistics);
+
+        $this->postJson('/api/assistant/chat', [
+            'role' => 'logistics',
+            'screen' => 'logistics.routes',
+            'prompt' => 'Summarize my route priorities.',
+            'context' => [],
+        ])
+            ->assertStatus(502)
+            ->assertJsonPath('message', 'The AI assistant is temporarily unavailable. Please try again shortly.');
     }
 
     public function test_rejected_user_cannot_log_in(): void

@@ -14,6 +14,8 @@ import 'package:open_file/open_file.dart';
 import '../../config.dart';
 import '../../services/auth_session_service.dart';
 import '../../services/profile_image_service.dart';
+import '../../services/role_assistant_context_builder.dart';
+import '../../widgets/role_assistant_page.dart';
 import 'widgets/dashboard_widgets.dart';
 
 /// Processor workspace for inventory management, batch creation, and reports.
@@ -160,6 +162,53 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     setState(() {
       _locationController.text = factoryAddress;
     });
+  }
+
+  String _assistantScreen() {
+    switch (_selectedIndex) {
+      case 1:
+        return 'processor.create_batch';
+      case 2:
+        return 'processor.reports';
+      default:
+        return 'processor.inventory';
+    }
+  }
+
+  Map<String, dynamic> _assistantContext() {
+    return RoleAssistantContextBuilder.processorDashboard(
+      selectedIndex: _selectedIndex,
+      userData: _userData,
+      batches: _apiBatches,
+      searchQuery: _searchController.text.trim(),
+      filterType: _filterType,
+      productType: _selectedProductType,
+      batchId: _batchIdController.text.trim(),
+      weight: _weightController.text.trim(),
+      originFarm: _originController.text.trim(),
+      processingFactory: _factoryController.text.trim(),
+      location: _locationController.text.trim(),
+      certificateAuthority: _certificateAuthorityController.text.trim(),
+      certificateNo: _certificateNoController.text.trim(),
+      slaughterDate: _selectedDate,
+      certificateValidUntil: _certificateValidUntil,
+    );
+  }
+
+  void _openAssistantPage() {
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RoleAssistantPage(
+          role: 'processor',
+          screen: _assistantScreen(),
+          title: 'Processor Assistant',
+          accentColor: const Color(0xFF1B5E20),
+          contextBuilder: _assistantContext,
+        ),
+      ),
+    );
   }
 
   Future<void> _fetchInventory() async {
@@ -509,6 +558,33 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                             userData: _userData,
                             onProfileUpdate: _fetchProfile)));
               },
+            ),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B5E20).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Color(0xFF1B5E20),
+                  size: 22,
+                ),
+              ),
+              title: const Text(
+                "AI Assistant",
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1B5E20),
+                ),
+              ),
+              subtitle: Text(
+                "Ask about this current workspace",
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+              onTap: _openAssistantPage,
             ),
             const Spacer(),
             Padding(

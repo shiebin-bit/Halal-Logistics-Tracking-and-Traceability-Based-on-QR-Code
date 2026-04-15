@@ -14,6 +14,7 @@ This app is used by `admin`, `processor`, `logistics`, `retailer`, and public `c
 - public consumer traceability lookup
 - checkpoint-based shipment route maps for consumer, admin, and logistics detail views
 - lightweight admin reporting widgets and logistics detail timeline polish for demo use
+- drawer-based Gemini operational assistant for `processor`, `logistics`, and `retailer`
 - profile image and document-related UI flows
 
 ## Stack
@@ -87,6 +88,9 @@ lib/
 - Public consumer traceability does not require login.
 - The current shipment map uses OpenStreetMap tiles and stored checkpoint coordinates.
 - The current map is not continuous background GPS streaming; it updates when checkpoints are recorded.
+- The role assistant is not a direct frontend Gemini integration; it sends role and dashboard context to the backend AI proxy.
+- The current assistant reads the current dashboard workspace plus a backend-generated monthly summary, not the entire database.
+- If the backend container was rebuilt after assistant changes, restart the app session so the live API route and UI state stay aligned.
 - Logistics route detail cards now truncate long checkpoint labels cleanly on smaller mobile screens.
 - Production builds should point to the real backend origin with `--dart-define=API_ORIGIN=...`.
 

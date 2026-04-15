@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\LogisticsController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\RetailerController;
+use App\Http\Controllers\Api\AiAssistantController;
 
 
 // Public Routes (No Authentication Required)
@@ -68,5 +69,9 @@ Route::middleware(['auth:sanctum', 'token.idle'])->group(function () {
         Route::get('/retailer/inventory', [RetailerController::class, 'inventory']);
         Route::post('/retailer/accept', [RetailerController::class, 'accept']);
         Route::post('/retailer/reject', [RetailerController::class, 'reject']);
+    });
+
+    Route::middleware('role:processor,logistics,retailer')->group(function () {
+        Route::post('/assistant/chat', [AiAssistantController::class, 'chat']);
     });
 });
