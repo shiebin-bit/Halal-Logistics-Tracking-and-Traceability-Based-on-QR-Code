@@ -116,8 +116,10 @@ jobs:
             --output trivy-image.sarif \
             --exit-code 1 \
             --ignore-unfixed \
+            --skip-version-check \
             --severity HIGH,CRITICAL \
-            --vuln-type os,library \
+            --pkg-types os,library \
+            --scanners vuln \
             "${{ env.SCAN_IMAGE_REF }}"
 
       - name: Upload Trivy image scan results
@@ -125,6 +127,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-image.sarif
+          category: trivy-image
 
       - name: Run Trivy config scan
         if: always()
@@ -138,6 +141,7 @@ jobs:
             --format sarif \
             --output trivy-config.sarif \
             --exit-code 1 \
+            --skip-version-check \
             --severity HIGH,CRITICAL \
             .
 
@@ -146,6 +150,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-config.sarif
+          category: trivy-config
 
       - name: Upload Trivy scan artifacts
         if: always() && (hashFiles('trivy-image.sarif') != '' || hashFiles('trivy-config.sarif') != '')
