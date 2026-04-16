@@ -308,9 +308,11 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
         _fetchInventory();
         setState(() => _selectedIndex = 0);
       } else {
-        final err = jsonDecode(response.body);
+        final err = _decodeErrorPayload(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err['message'] ?? "Failed to save batch")),
+          SnackBar(
+            content: Text(_batchSaveErrorMessage(response.statusCode, err)),
+          ),
         );
       }
     } catch (e) {
@@ -320,6 +322,30 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
     } finally {
       setState(() => _isSavingBatch = false);
     }
+  }
+
+  Map<String, dynamic> _decodeErrorPayload(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (_) {
+      // Nginx and proxy errors may return HTML instead of Laravel JSON.
+    }
+
+    return const {};
+  }
+
+  String _batchSaveErrorMessage(int statusCode, Map<String, dynamic> payload) {
+    if (statusCode == 413) {
+      return 'The selected certificate file is too large. Please upload a file up to 5 MB.';
+    }
+
+    final message = payload['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      return message;
+    }
+
+    return 'Failed to save batch. Please check the form and try again.';
   }
 
   Future<void> _pickBatchCertificate() async {
@@ -1305,9 +1331,11 @@ class _ProcessorDashboardState extends State<ProcessorDashboard> {
                 duration: const Duration(milliseconds: 600),
                 curve: Curves.easeOutBack,
                 builder: (context, value, child) {
+                  final opacity = value.clamp(0.0, 1.0).toDouble();
+
                   return Transform.scale(
                     scale: value,
-                    child: Opacity(opacity: value, child: child),
+                    child: Opacity(opacity: opacity, child: child),
                   );
                 },
                 child: Center(

@@ -19,6 +19,12 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY . /var/www/
 
+RUN { \
+    echo "upload_max_filesize=6M"; \
+    echo "post_max_size=8M"; \
+    echo "max_file_uploads=20"; \
+} > /usr/local/etc/php/conf.d/halaltrack-uploads.ini
+
 RUN composer install --no-interaction --prefer-dist 
 
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
