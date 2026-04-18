@@ -19,6 +19,12 @@ class Checkpoint extends Model
         'action_type', 'notes', 'signature_path'
     ];
 
+    protected $casts = [
+        'latitude' => 'float',
+        'longitude' => 'float',
+        'temperature' => 'float',
+    ];
+
     /** Batch referenced by this checkpoint entry. */
     public function batch()
     {
