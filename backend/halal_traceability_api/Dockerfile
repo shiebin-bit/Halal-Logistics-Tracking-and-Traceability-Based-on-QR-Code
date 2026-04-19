@@ -19,6 +19,15 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY . /var/www/
 
+RUN mkdir -p \
+    storage/app/public \
+    storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/testing \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache
+
 RUN { \
     echo "upload_max_filesize=6M"; \
     echo "post_max_size=8M"; \

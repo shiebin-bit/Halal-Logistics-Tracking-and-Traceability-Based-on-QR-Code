@@ -9,6 +9,8 @@ services:
     working_dir: /var/www/
     depends_on:
       - db
+    env_file:
+      - ./backend/halal_traceability_api/.env
     volumes:
       - ./backend/halal_traceability_api/storage/app/public:/var/www/storage/app/public
     environment:

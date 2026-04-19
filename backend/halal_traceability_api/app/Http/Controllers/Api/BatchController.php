@@ -187,8 +187,9 @@ class BatchController extends Controller
     public function publicIndex(Request $request)
     {
         $query = Batch::query()
-            ->whereNotNull('qr_generated_at')
+            ->whereNotNull('qr_code_hash')
             ->whereNull('qr_revoked_at')
+            ->where('status', '!=', 'Invalid - Certificate Revoked')
             ->latest('created_at');
 
         if ($request->filled('search')) {
@@ -250,7 +251,7 @@ class BatchController extends Controller
                 'certificate_no' => $batch->certificate_no,
                 'certificate_valid_until' => $batch->certificate_valid_until,
                 'certificate_active' => $batch->hasValidCertificate(),
-                'qr_code_payload' => $batch->qr_code_payload,
+                'qr_code_payload' => $this->publicQrPayload($batch),
                 'checkpoints' => $batch->checkpoints
                     ->map(fn (Checkpoint $checkpoint) => $this->publicCheckpointItem($checkpoint))
                     ->values(),
@@ -388,5 +389,18 @@ class BatchController extends Controller
                 default => 'Transit update',
             },
         ];
+    }
+
+    private function publicQrPayload(Batch $batch): ?string
+    {
+        if (filled($batch->qr_code_payload)) {
+            return $batch->qr_code_payload;
+        }
+
+        if (!filled($batch->qr_code_hash)) {
+            return null;
+        }
+
+        return "BATCH:{$batch->batch_id}|SIG:{$batch->qr_code_hash}";
     }
 }

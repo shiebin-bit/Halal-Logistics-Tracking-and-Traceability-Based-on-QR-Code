@@ -73,9 +73,7 @@ class Batch extends Model
 
     public function hasActiveQr(): bool
     {
-        return filled($this->qr_code_payload)
-            && filled($this->qr_code_hash)
-            && $this->qr_generated_at !== null
+        return filled($this->qr_code_hash)
             && $this->qr_revoked_at === null
             && $this->status !== 'Invalid - Certificate Revoked';
     }

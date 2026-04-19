@@ -467,7 +467,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `name`, `email`, `email_verified_at`, `password`, `remember_token`, `phone_number`, `profile_image`, `role`, `is_approved`, `approved_at`, `created_at`, `updated_at`) VALUES
-(1, 'Ali Halal Factory', 'ali@processor.com', NULL, '$2y$12$Y9UiQwl24TNBm59/J91iR.KhKzD4Zahd136jvuViJ1bR0U3.8dYWe', NULL, '+60123456789', 'avatars/sm2eu9NrUdspycNIyvus5xWgNmiAeiTX0rXGqGPy.jpg', 'processor', 1, NULL, '2026-01-11 06:45:55', '2026-03-06 05:34:32'),
+(1, 'Ali Halal Factory', 'ali@processor.com', NULL, '$2y$12$Y9UiQwl24TNBm59/J91iR.KhKzD4Zahd136jvuViJ1bR0U3.8dYWe', NULL, '+60123456789', 'avatars/WmyjGu3fx6vnLdD1VXR0b4suqRBk9I2jq9qV0GZS.jpg', 'processor', 1, NULL, '2026-01-11 06:45:55', '2026-03-06 05:34:32'),
 (2, 'Swift Logistics', 'driver@logistics.com', NULL, '$2y$12$Y9UiQwl24TNBm59/J91iR.KhKzD4Zahd136jvuViJ1bR0U3.8dYWe', NULL, '+60198765432', 'avatars/0uEef2kumpoCkpkzSaeJTcFG9d3fRMQ8tBbH2ybw.jpg', 'logistics', 1, NULL, '2026-01-11 06:45:55', '2026-03-06 05:33:54'),
 (3, 'Fresh Mart KL', 'manager@retailer.com', NULL, '$2y$12$Y9UiQwl24TNBm59/J91iR.KhKzD4Zahd136jvuViJ1bR0U3.8dYWe', NULL, '+601122334455', 'avatars/smyoH2chQ05dA5VlXmEAOLBoHhumo3qEBthk5acE.jpg', 'retailer', 1, NULL, '2026-01-11 06:45:55', '2026-03-06 06:38:27'),
 (4, 'System Administrator', 'admin@halalchain.my', NULL, '$2y$12$Y9UiQwl24TNBm59/J91iR.KhKzD4Zahd136jvuViJ1bR0U3.8dYWe', NULL, '+60100000000', NULL, 'admin', 1, NULL, '2026-02-15 14:26:57', '2026-02-15 14:26:57'),

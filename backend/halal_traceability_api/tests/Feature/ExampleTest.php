@@ -102,6 +102,46 @@ class ExampleTest extends TestCase
             ->assertJsonPath('batch.checkpoints.0.summary', 'Transit update');
     }
 
+    public function test_public_batch_detail_supports_legacy_hash_only_qr_data(): void
+    {
+        $processor = User::factory()->create([
+            'role' => 'processor',
+            'phone_number' => '+60112225555',
+            'is_approved' => true,
+            'email_verified_at' => now(),
+        ]);
+
+        Batch::create([
+            'batch_id' => 'B-2026-LEGACY-QR-001',
+            'processor_id' => $processor->id,
+            'current_holder_id' => $processor->id,
+            'product_type' => 'Whole Chicken',
+            'weight' => '120kg',
+            'slaughter_date' => '2026-03-30',
+            'processing_date' => '2026-03-30',
+            'origin_farm' => 'Farm QA',
+            'processing_factory' => 'Plant QA',
+            'current_location' => 'Shah Alam',
+            'certificate_authority' => 'JAKIM',
+            'certificate_no' => 'CERT-LEGACY-001',
+            'certificate_valid_until' => now()->addMonth()->toDateString(),
+            'certificate_document_path' => 'batch-certificates/cert-legacy.pdf',
+            'qr_code_hash' => 'legacy-signed-hash',
+            'status' => 'In Transit',
+        ]);
+
+        $this->getJson('/api/public/batches')
+            ->assertOk()
+            ->assertJsonPath('data.0.batch_id', 'B-2026-LEGACY-QR-001');
+
+        $this->getJson('/api/public/batches/B-2026-LEGACY-QR-001')
+            ->assertOk()
+            ->assertJsonPath(
+                'batch.qr_code_payload',
+                'BATCH:B-2026-LEGACY-QR-001|SIG:legacy-signed-hash'
+            );
+    }
+
     public function test_revoked_batch_is_not_available_to_public(): void
     {
         $processor = User::factory()->create([
