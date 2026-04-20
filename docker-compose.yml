@@ -14,9 +14,6 @@ services:
     volumes:
       - ./backend/halal_traceability_api/storage/app/public:/var/www/storage/app/public
     environment:
-      APP_ENV: local
-      APP_DEBUG: true
-      APP_URL: http://127.0.0.1:8000
       DB_CONNECTION: mysql
       DB_HOST: db
       DB_PORT: 3306
