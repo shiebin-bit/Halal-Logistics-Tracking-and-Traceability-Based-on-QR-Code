@@ -16,6 +16,7 @@ This directory is organized by document type so reports, deployment notes, propo
 ## Key Documents
 
 - [AI Assistant And System Verification Report](reports/ai_assistant_and_system_verification_report.md)
+- [Backend Code Walkthrough](reports/halaltrack_backend_code_walkthrough.md)
 - [Enterprise System Explanation Report](reports/halaltrack_enterprise_report.md)
 - [Current Improvement Roadmap](reports/current_improvement_roadmap.md)
 - [Deployment Guide](deployment/vps_docker_nginx_github_actions_deployment_guide.md)
