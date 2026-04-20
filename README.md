@@ -31,6 +31,7 @@ Instead of treating traceability as a static record, the platform captures actua
 - Checkpoint-based route map rendering on real OpenStreetMap tiles for consumer, admin, and logistics views
 - Lightweight admin reporting snapshot and certificate governance summary views
 - Gemini-powered role assistant for `processor`, `logistics`, and `retailer` through a Laravel backend proxy
+- Brevo-backed SMTP email delivery for production-style demo mail flows
 - Retailer acceptance and rejection workflow
 - Admin approval flow for partner onboarding and certificate control
 - Dockerized backend runtime for local development and production deployment
@@ -66,8 +67,11 @@ Instead of treating traceability as a static record, the platform captures actua
 - Docker
 - Docker Compose
 - Nginx
+- Cloudflare Tunnel for current public demo access
+- Brevo SMTP for email delivery
 - GitHub Actions
 - GitHub Container Registry
+- Docker Hub for optional manual backend image publishing
 
 ## Architecture
 
@@ -122,6 +126,9 @@ Implemented:
 - lightweight admin reporting and certificate governance views
 - drawer-based Gemini role assistant for `processor`, `logistics`, and `retailer`
 - current-screen plus current-month AI context summaries through the backend proxy
+- Brevo SMTP configuration and live email smoke test
+- Cloudflare Tunnel public API domain for phone/demo testing
+- hardened backend Docker image build that excludes `.env`, logs, cache, and uploaded runtime files
 - manifest PDF export
 - QR payload parsing across app flows
 - Dockerized local backend stack
@@ -129,8 +136,8 @@ Implemented:
 
 Still production-facing work:
 
+- move from local Cloudflare Tunnel demo hosting to VPS deployment when ready
 - finalize VPS deployment secrets and runtime configuration
-- connect real SMTP credentials and domain mail records
 - harden or remove demo-only shortcuts before real release
 
 Important scope note:
@@ -166,6 +173,11 @@ Local services:
 
 - API: `http://127.0.0.1:8000`
 - MariaDB host port: `3308`
+
+Current public demo API through Cloudflare Tunnel:
+
+- API origin: `https://halaltrack.shiebindev.com`
+- Public batches endpoint: `https://halaltrack.shiebindev.com/api/public/batches`
 
 Seed note:
 
@@ -217,8 +229,10 @@ Current local validation completed in this repository:
 - frontend `flutter analyze` passes
 - frontend `flutter test` passes
 - backend Docker image builds successfully
+- backend Docker image has been hardened so committed images do not include the real `.env`, logs, cache, or uploaded storage files
 - live Docker backend, database, and seeded role flows have been smoke-tested successfully
 - live Gemini assistant proxy flow has been smoke-tested successfully
+- live Brevo SMTP delivery has been smoke-tested successfully
 
 Business logic status:
 
@@ -230,7 +244,7 @@ Business logic status:
 Current GitHub Actions workflows:
 
 - [backend-ci.yml](.github/workflows/backend-ci.yml)
-  Backend tests, Docker image build, and GHCR push on `main`
+  Backend tests, Docker image build, Trivy SARIF/report artifact generation, and GHCR push on `main`
 - [frontend-ci.yml](.github/workflows/frontend-ci.yml)
   Flutter analyze and test
 - [cd.yml](.github/workflows/cd.yml)
@@ -240,6 +254,12 @@ Production deployment assets:
 
 - [deploy/compose/docker-compose.prod.yml](deploy/compose/docker-compose.prod.yml)
 - [deploy/README.md](deploy/README.md)
+
+Image publishing note:
+
+- CI publishes the backend image to GHCR.
+- Docker Hub can also be used manually by tagging the local image, for example `docker tag fyp_project-app:latest shiebin/fyp_project-app:latest`.
+- The backend image should receive secrets only at runtime through `.env`, Docker Compose `env_file`, VPS environment files, or CI/CD secrets.
 
 ## Demo Accounts
 
@@ -260,7 +280,7 @@ Notes:
 ## Documentation
 
 - [AI Assistant And System Verification Report](documentation/reports/ai_assistant_and_system_verification_report.md)
-- [Enterprise System Explanation Report](documentation/reports/enterprise_system_explanation_report.md)
+- [Enterprise System Explanation Report](documentation/reports/halaltrack_enterprise_report.md)
 - [Documentation Index](documentation/README.md)
 - [Deployment Guide](documentation/deployment/vps_docker_nginx_github_actions_deployment_guide.md)
 - [Requirements Completion Report](documentation/reports/requirements_completion_report.md)
@@ -272,5 +292,6 @@ Notes:
 
 - Local backend runtime is Docker-based.
 - Frontend development does not require Docker.
-- Production deployment is designed around GHCR image pull plus remote Docker Compose.
-- Sensitive values such as production `.env`, VPS SSH keys, and registry credentials should never be committed.
+- The current public demo can run through Cloudflare Tunnel; the planned production-style deployment remains VPS plus Docker Compose.
+- Production deployment is designed around GHCR image pull plus remote Docker Compose, with optional Docker Hub publishing for demonstration.
+- Sensitive values such as production `.env`, Brevo SMTP keys, Gemini API keys, VPS SSH keys, and registry credentials should never be committed.

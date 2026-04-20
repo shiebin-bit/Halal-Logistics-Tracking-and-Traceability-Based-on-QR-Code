@@ -16,7 +16,7 @@ This directory is organized by document type so reports, deployment notes, propo
 ## Key Documents
 
 - [AI Assistant And System Verification Report](reports/ai_assistant_and_system_verification_report.md)
-- [Enterprise System Explanation Report](reports/enterprise_system_explanation_report.md)
+- [Enterprise System Explanation Report](reports/halaltrack_enterprise_report.md)
 - [Current Improvement Roadmap](reports/current_improvement_roadmap.md)
 - [Deployment Guide](deployment/vps_docker_nginx_github_actions_deployment_guide.md)
 - [Requirements Completion Report](reports/requirements_completion_report.md)
@@ -33,7 +33,10 @@ This directory is organized by document type so reports, deployment notes, propo
 - The main Docker SQL dump now includes map-friendly demo data for the primary presentation accounts.
 - The live Docker backend, database, and seeded demo flows have been re-verified after the AI assistant rollout.
 - Backend automated verification is currently fully passing again with `php artisan test`.
-- Remaining open work is mainly production-facing deployment, SMTP, and rollout hardening.
+- Brevo SMTP has been configured and smoke-tested through the Laravel backend.
+- Cloudflare Tunnel is currently used for public phone/demo access at `https://halaltrack.shiebindev.com`.
+- The backend Docker image build has been hardened to avoid baking real `.env`, logs, cache, and uploaded runtime files into the image.
+- Remaining open work is mainly production-facing VPS deployment and rollout hardening.
 
 ## Database Assets
 

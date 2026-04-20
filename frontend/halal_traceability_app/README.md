@@ -52,6 +52,20 @@ Override it when needed:
 flutter run --dart-define=API_ORIGIN=https://api.example.com
 ```
 
+Current Cloudflare Tunnel demo origin:
+
+```powershell
+flutter run --dart-define=API_ORIGIN=https://halaltrack.shiebindev.com
+```
+
+For a phone APK that connects to the public tunnel/domain, build with:
+
+```powershell
+flutter build apk --release --dart-define=API_ORIGIN=https://halaltrack.shiebindev.com
+```
+
+Use `http://10.0.2.2:8000` only for Android emulator testing against the local Docker backend.
+
 ## Quality Checks
 
 Analyze:
@@ -90,8 +104,9 @@ lib/
 - The current map is not continuous background GPS streaming; it updates when checkpoints are recorded.
 - The role assistant is not a direct frontend Gemini integration; it sends role and dashboard context to the backend AI proxy.
 - The current assistant reads the current dashboard workspace plus a backend-generated monthly summary, not the entire database.
+- Email delivery is handled by the Laravel backend SMTP configuration, not by the Flutter app.
 - If the backend container was rebuilt after assistant changes, restart the app session so the live API route and UI state stay aligned.
 - Logistics route detail cards now truncate long checkpoint labels cleanly on smaller mobile screens.
-- Production builds should point to the real backend origin with `--dart-define=API_ORIGIN=...`.
+- Production or phone-demo builds should point to the real backend origin with `--dart-define=API_ORIGIN=...`.
 
 For broader project context, see the root [README](../../README.md).

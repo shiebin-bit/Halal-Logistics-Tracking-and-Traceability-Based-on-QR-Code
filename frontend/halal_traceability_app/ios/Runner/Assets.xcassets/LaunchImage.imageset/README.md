@@ -1,5 +1,5 @@
 # Launch Screen Assets
 
-You can customize the launch screen with your own desired assets by replacing the image files in this directory.
+This directory contains the iOS launch screen image set for the HalalTrack Flutter app.
 
-You can also do it by opening your Flutter project's Xcode project with `open ios/Runner.xcworkspace`, selecting `Runner/Assets.xcassets` in the Project Navigator and dropping in the desired images.
+To update the launch screen, replace the image files in this directory with the prepared HalalTrack splash/logo assets. You can also open the Flutter iOS project with `open ios/Runner.xcworkspace`, select `Runner/Assets.xcassets` in the Project Navigator, and drop in the desired images.
